@@ -1,30 +1,37 @@
 #!/usr/bin/env python
 
 import sys
+import threading
 import time
-import rospy
+from math import pow, sqrt
+
+import rclpy
+from rclpy.node import Node
+from rclpy.duration import Duration
+
 from geometry_msgs.msg import Twist
-from mowbot_msgs.msg import OdomExtra, PlatformData
-import tf
-from math import radians, copysign, sqrt, pow, pi, asin, atan2
-from MoveParent import MoveParent
+from nav_msgs.msg import Odometry
+
+from scripted_bot_driver.move_parent import MoveParent
 
 loop_rate = 10       # loop rate
 
 class DriveStraightOdom(MoveParent):
-    def __init__(self, cmd_vel):
-        super().__init__(cmd_vel)
+    def __init__(self):
+        super().__init__('drive_straight')
+        self.initial_x = 0.0
+        self.initial_y = 0.0
 
     def parse_argv(self, argv):
         self.distance = float(argv[0])  # pick off first arg from supplied list
-        self.odometer_goal = self.odom_extra.odometer + self.distance
-        self.odometer_start = self.odom_extra.odometer
+        if self.distance < 0:
+            self.distance = -self.distance  # distance is always +ve
+            self.speed = -self.speed        # go backward
 
-        # check whether a speed argument was supplied
+        # a supplied speed argument overrides everything
         if len(argv) > 1:
             try:
-                speed_arg = float(argv[1])
-                self.speed = speed_arg
+                self.speed = float(argv[1])
                 print('Using supplied speed {}'.format(self.speed))
                 return 2
             except ValueError:
@@ -32,60 +39,78 @@ class DriveStraightOdom(MoveParent):
         return 1            # return number of args consumed
 
     def print(self):
-        rospy.loginfo('Drive straight with odometry for {} m'.format(self.distance))
+        self.get_logger().info('Drive straight with odometry for {} m'.format(self.distance))
 
-    # run is called at the rate until it returns true
+    # run is called at the rate until it returns true. It does not stop motion on
+    # completion - caller is responsible for stopping motion.
     def run(self):
+        if not self.odom_started:
+            self.get_logger().error('ERROR: robot odometry has not started - exiting')
+            return True
+
         if self.once:
-            rospy.loginfo('start odometer: {}, goal: {}'.format(self.odom_extra.odometer, self.odometer_goal))
+            self.initial_x = self.odom.pose.pose.position.x
+            self.initial_y = self.odom.pose.pose.position.y
+            self.get_logger().info('Initial X-Y: {} {}, goal distance: {}'.format(
+                self.initial_x, self.initial_y, self.distance))
             self.once = False
 
-        if ((self.distance >= 0 and self.odom_extra.odometer >= self.odometer_goal) or \
-            (self.distance < 0 and self.odom_extra.odometer < self.odometer_goal)):
-            rospy.loginfo('traveled: {} m'.format(self.odom_extra.odometer - self.odometer_start))
+        delta_x = self.odom.pose.pose.position.x - self.initial_x
+        delta_y = self.odom.pose.pose.position.y - self.initial_y
+        delta_odom = sqrt(pow(delta_x, 2) + pow(delta_y, 2))
+
+        if (delta_odom > self.distance):
+            self.get_logger().info('traveled: {} m'.format(delta_odom))
             return True
 
         # accelerate to full speed as long as we haven't reached the goal
         if self.distance >= 0:
-            self.move_cmd.linear.x = self.slew_vel(self.speed)
+            self.send_move_cmd(self.slew_vel(self.speed), self.slew_rot(0.0))
         else:
-            self.move_cmd.linear.x = self.slew_vel(-self.speed)
+            self.send_move_cmd(self.slew_vel(-self.speed), self.slew_rot(0.0))
 
-        rospy.loginfo(self.move_cmd.linear.x)
-        self.cmd_vel.publish(self.move_cmd)
         return False
-
-def shutdown():
-    # Always stop the robot when shutting down the node.
-    rospy.loginfo("Stopping the robot...")
-    cmd_vel.publish(Twist())
-    rospy.sleep(1)
 
 def usage():
     print('Usage: drive_straight.py <distance> [speed] - drive the specified distance forward or backward, with optional speed')
     sys.exit()
 
-if __name__ == '__main__':
+def main():
     if len(sys.argv) != 2 and len(sys.argv) != 3:
         usage()
     argv_index = 1
 
-    rospy.init_node('move', anonymous=False)
-    rospy.on_shutdown(shutdown)     # Set rospy to execute a shutdown function when exiting
+    rclpy.init()
+    nh = DriveStraightOdom()
+    nh.start_spin_thread()   # There's no spinner automatically in a node
+    # pause until odometry is received
+    while not nh.is_odom_started():
+        time.sleep(0.1)
+        nh.get_logger().info('slept on odometry')
 
-    global cmd_vel
-    cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
-    r = rospy.Rate(loop_rate)
+    r = nh.create_rate(loop_rate)
+
+    argv_index += nh.parse_argv(sys.argv[argv_index:])
+    nh.print()
+    time.sleep(0.1)
 
     try:
-        m = DriveStraightOdom(cmd_vel)
-        argv_index += m.parse_argv(sys.argv[argv_index:])
-        m.print()
-        while (not rospy.is_shutdown()):
-            if m.run():
+        while (rclpy.ok()):
+            if nh.run():
                 break
             r.sleep()
 
     except Exception as e:
         print(e)
-        rospy.loginfo("{} node terminated.".format(__file__))
+        nh.get_logger().info("{} node terminated.".format(__file__))
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    nh.shutdown()     # nh should make things safe
+    nh.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

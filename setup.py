@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'runner.py = scripted_bot_driver.runner:main',
+            'drive_straight_odom.py = scripted_bot_driver.drive_straight_odom:main',
             'stop.py = scripted_bot_driver.stop:main',
             'move_parent.py = scripted_bot_driver.move_parent:main',
         ],

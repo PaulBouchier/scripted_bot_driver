@@ -27,6 +27,7 @@ class MoveParent(Node):
 
     def __init__(self, node_name):
         super().__init__(node_name)
+        self.node_name = node_name
         self.once = True
         self.speed = speed_default
         self.full_speed = speed_default
@@ -39,6 +40,7 @@ class MoveParent(Node):
 
         # subscribers to robot data
         self.odom = Odometry()
+        self.odom_started = False
         self.subscription = self.create_subscription(
             Odometry, 'odom', self.odom_callback, 10)
         
@@ -47,6 +49,11 @@ class MoveParent(Node):
         self.cmd_vel_pub = self.create_publisher(
             Twist, 'cmd_vel', 10
         )
+
+        # Create a thread to run spin_once() so Rate.sleep() works
+        self.stop_thread_flag = False
+        self.spin_thread = threading.Thread(target=self.spin_thread_entry)
+
 
     def send_move_cmd(self, linear, angular):
         self.move_cmd.linear.x = linear
@@ -71,16 +78,31 @@ class MoveParent(Node):
 
     def odom_callback(self, odom_msg):
         self.odom = odom_msg
+        self.odom_started = True
+    
+    def is_odom_started(self):
+        return self.odom_started
+
+    # implement a thread that keeps calling spin_once() so rate.sleep() will work
+    def spin_thread_entry(self):
+        while(self.stop_thread_flag == False and rclpy.ok()):
+            rclpy.spin_once(self, timeout_sec=0.01)
+            if (self.stop_thread_flag):
+                self.get_logger().debug('Node %s spinner shutting down'%(self.node_name))
+                return
+
+    def start_spin_thread(self):
+        self.spin_thread.start()
+
+    def shutdown(self):
+        self.stop_thread_flag = True
+        time.sleep(0.02)    # wait for spin_thread to exit
+
 
 def main(args=None):
     rclpy.init()
 
     move_parent = MoveParent('move_parent')
-
-    # Run spin in a thread, make thread daemon so we don't have to join it to exit
-    # Provide stop_node so it calls rclpy.spin(stop_node)
-    thread = threading.Thread(target=rclpy.spin, args=(move_parent, ), daemon=True)
-    thread.start()
 
     move_parent.send_move_cmd(1.0, 0.0)
     print('sent move command')
@@ -92,6 +114,7 @@ def main(args=None):
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
+    move_parent.shutdown()
     move_parent.destroy_node()
     rclpy.shutdown()
 
