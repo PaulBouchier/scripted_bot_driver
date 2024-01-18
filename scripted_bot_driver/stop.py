@@ -10,10 +10,7 @@ from rclpy.duration import Duration
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
-#from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_driver.move_parent import MoveParent
-
-loop_rate = 10       # loop rate
 
 class Stop(MoveParent):
     def __init__(self):
@@ -22,6 +19,10 @@ class Stop(MoveParent):
         self.end_pause_time = self.get_clock().now() # time when pause ends
 
     def parse_argv(self, argv):
+        if (len(argv) != 0 and len(argv) != 1):
+            self.get_logger().error('Incorrrect number of args given to Stop: {}'.format(len(argv)))
+            return -1
+
         # check whether a pause argument was supplied
         if (len(argv) > 0):
             try:
@@ -32,7 +33,8 @@ class Stop(MoveParent):
                 self.get_logger().info('Stop is using supplied pause {}'.format(pause_arg))
                 return 1
             except ValueError:
-                return 0
+                self.get_logger().error('Invalid argument given: {}'.format(argv))
+                return -1
         return 0            # return number of args consumed
 
     def print(self):
@@ -64,44 +66,18 @@ class Stop(MoveParent):
         self.send_move_cmd(self.slew_vel(0), self.slew_rot(0))
         return False
 
-def usage():
-    print('Usage: stop.py [pause] - ramp down linear & rotational speed & pause if pause is not zero')
-    sys.exit()
+    def usage():
+        print('Usage: stop.py [pause] - ramp down linear & rotational speed & pause if pause is not zero')
+        sys.exit()
+
+loop_rate = 10       # loop rate
 
 def main():
-    if len(sys.argv) != 1 and len(sys.argv) != 2:
-        usage()
-    argv_index = 1
-
     rclpy.init()
     nh = Stop()
-    nh.start_spin_thread()   # There's no spinner automatically in a node
-    # pause until odometry is received
-    while not nh.is_odom_started():
-        time.sleep(0.1)
-        nh.get_logger().info('slept on odometry')
 
-    r = nh.create_rate(loop_rate)
+    rclpy.spin()
 
-    argv_index += nh.parse_argv(sys.argv[argv_index:])
-    nh.print()
-
-    try:
-        while (rclpy.ok()):
-            if nh.run():
-                break
-            r.sleep()
-
-    except Exception as e:
-        print(e)
-        nh.get_logger().info("{} node terminated.".format(__file__))
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    nh.shutdown()     # nh should make things safe
-    nh.destroy_node()
-    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

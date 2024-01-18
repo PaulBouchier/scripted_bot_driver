@@ -54,7 +54,6 @@ class MoveParent(Node):
         self.stop_thread_flag = False
         self.spin_thread = threading.Thread(target=self.spin_thread_entry)
 
-
     def send_move_cmd(self, linear, angular):
         self.move_cmd.linear.x = linear
         self.move_cmd.angular.z = angular

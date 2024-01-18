@@ -14,8 +14,6 @@ from nav_msgs.msg import Odometry
 
 from scripted_bot_driver.move_parent import MoveParent
 
-loop_rate = 10       # loop rate
-
 class DriveStraightOdom(MoveParent):
     def __init__(self):
         super().__init__('drive_straight')
@@ -23,23 +21,27 @@ class DriveStraightOdom(MoveParent):
         self.initial_y = 0.0
 
     def parse_argv(self, argv):
-        self.distance = float(argv[0])  # pick off first arg from supplied list
-        if self.distance < 0:
-            self.distance = -self.distance  # distance is always +ve
-            self.speed = -self.speed        # go backward
+        if (len(argv) != 1 and len(argv) != 2):
+            self.get_logger().error('Incorrrect number of args given to DriveStraightOdom: {}'.format(len(argv)))
+            return -1
 
-        # a supplied speed argument overrides everything
-        if len(argv) > 1:
-            try:
+        try:
+            self.distance = float(argv[0])  # pick off first arg from supplied list
+            if self.distance < 0:
+                self.distance = -self.distance  # distance is always +ve
+                self.speed = -self.speed        # go backward
+
+            # a supplied speed argument overrides everything
+            if len(argv) == 2:
                 self.speed = float(argv[1])
                 print('Using supplied speed {}'.format(self.speed))
-                return 2
-            except ValueError:
-                return 1
-        return 1            # return number of args consumed
+        except ValueError:
+            self.get_logger().error('Invalid argument given: {}'.format(argv))
+            return -1
+        return len(argv)            # return number of args consumed
 
     def print(self):
-        self.get_logger().info('Drive straight with odometry for {} m'.format(self.distance))
+        self.get_logger().info('Drive straight with odometry for {} m at speed: {}'.format(self.distance, self.speed))
 
     # run is called at the rate until it returns true. It does not stop motion on
     # completion - caller is responsible for stopping motion.
@@ -71,9 +73,9 @@ class DriveStraightOdom(MoveParent):
 
         return False
 
-def usage():
-    print('Usage: drive_straight.py <distance> [speed] - drive the specified distance forward or backward, with optional speed')
-    sys.exit()
+    def usage():
+        print('Usage: drive_straight.py <distance> [speed] - drive the specified distance forward or backward, with optional speed')
+        sys.exit()
 
 def main():
     if len(sys.argv) != 2 and len(sys.argv) != 3:
