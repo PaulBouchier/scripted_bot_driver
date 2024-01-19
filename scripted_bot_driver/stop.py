@@ -66,15 +66,24 @@ class Stop(MoveParent):
         self.send_move_cmd(self.slew_vel(0), self.slew_rot(0))
         return False
 
+    def start_action_server(self):
+        self.get_logger().info('Stop.start_action_server calling superclass')
+        create_action_server('stop', self.stop_action_exec_cb)
+
+    def stop_action_exec_cb(self):
+        self.get_logger().info('stop action_exec_cb called')
+        time.sleep(5)
+        print('stop action_exec_cb finished')
+
     def usage():
         print('Usage: stop.py [pause] - ramp down linear & rotational speed & pause if pause is not zero')
         sys.exit()
 
-loop_rate = 10       # loop rate
-
 def main():
     rclpy.init()
     nh = Stop()
+
+    nh.start_action_server()
 
     rclpy.spin()
 

@@ -10,9 +10,13 @@ import threading
 
 import rclpy
 from rclpy.node import Node
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from scripted_bot_interfaces.action import Move
 
 
 loop_rate = 10       # loop rate
@@ -54,6 +58,7 @@ class MoveParent(Node):
         self.stop_thread_flag = False
         self.spin_thread = threading.Thread(target=self.spin_thread_entry)
 
+
     def send_move_cmd(self, linear, angular):
         self.move_cmd.linear.x = linear
         self.move_cmd.angular.z = angular
@@ -92,6 +97,22 @@ class MoveParent(Node):
 
     def start_spin_thread(self):
         self.spin_thread.start()
+
+    # start action server
+    def create_action_server(self, action_name, execute_cb):
+        print('starting action server for action {}'.format(action_name))
+        self._goal_handle = None
+        self._goal_lock = threading.Lock()
+        self._action_server = ActionServer(
+            self,
+            Move,
+            action_name,
+            execute_callback=execute_cb,
+            #goal_callback=self.goal_callback,
+            #handle_accepted_callback=self.handle_accepted_callback,
+            #cancel_callback=self.cancel_callback,
+            #callback_group=ReentrantCallbackGroup()
+        )
 
     def shutdown(self):
         self.stop_thread_flag = True
