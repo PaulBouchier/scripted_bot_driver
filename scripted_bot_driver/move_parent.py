@@ -11,8 +11,6 @@ import threading
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
-from rclpy.callback_groups import ReentrantCallbackGroup
-from rclpy.executors import MultiThreadedExecutor
 
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -58,6 +56,8 @@ class MoveParent(Node):
         self.stop_thread_flag = False
         self.spin_thread = threading.Thread(target=self.spin_thread_entry)
 
+        # set up action
+        self.feedback_msg = Move.Feedback()
 
     def send_move_cmd(self, linear, angular):
         self.move_cmd.linear.x = linear
@@ -98,17 +98,56 @@ class MoveParent(Node):
     def start_spin_thread(self):
         self.spin_thread.start()
 
+    # send feedback message to client
+    def send_feedback(self, msg, progress):
+        self.feedback_msg.feedback_text = msg
+        self.feedback_msg.progress = progress
+        self.get_logger().info('Feedback: {} {}'.format(
+            self.feedback_msg.feedback_text,
+            self.feedback_msg.progress))
+        self._goal_handle.publish_feedback(self.feedback_msg)
+
+
+    # handle the goal by parsing the move_spec
+    def goal_callback(self, goal_request):
+        # parse the move_spec specified in the goal
+        if (self.parse_argv(goal_request.move_spec) < 0):
+            # parsing args failed - return abort
+            self.get_logger().error('action failed parsing move_spec')
+            return GoalResponse.REJECT
+        else:
+            return GoalResponse.ACCEPT
+
+    # call the subclass execute callback
+    def call_exec_cb(self, goal_handle):
+        self._goal_handle = goal_handle
+        move_results = []
+
+        if (not self.is_odom_started()):
+            # odom not started - return abort
+            self.get_logger().error('stop action failed - odometry not running')
+        else:
+            # call the execute callback to perform the move(s)
+            move_results = self.execute_cb()
+            goal_handle.succeed()
+            self.get_logger().info('action finished with success, results: {}'.format(move_results))
+
+        move_result = Move.Result()
+        move_result.move_results = move_results
+        return move_result
+
     # start action server
     def create_action_server(self, action_name, execute_cb):
-        print('starting action server for action {}'.format(action_name))
+        self.execute_cb = execute_cb
+        self.get_logger().info('starting action server for action {}'.format(action_name))
         self._goal_handle = None
         self._goal_lock = threading.Lock()
         self._action_server = ActionServer(
             self,
             Move,
             action_name,
-            execute_callback=execute_cb,
-            #goal_callback=self.goal_callback,
+            execute_callback=self.call_exec_cb,
+            goal_callback=self.goal_callback,
             #handle_accepted_callback=self.handle_accepted_callback,
             #cancel_callback=self.cancel_callback,
             #callback_group=ReentrantCallbackGroup()

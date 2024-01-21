@@ -4,21 +4,19 @@ import sys
 import time
 
 import rclpy
-from rclpy.node import Node
 from rclpy.duration import Duration
 
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
-
 from scripted_bot_driver.move_parent import MoveParent
+
 
 class Stop(MoveParent):
     def __init__(self):
         super().__init__('stop')
+
+    def parse_argv(self, argv):
         self.pause = 0            # pause after stop, in seconds
         self.end_pause_time = self.get_clock().now() # time when pause ends
 
-    def parse_argv(self, argv):
         if (len(argv) != 0 and len(argv) != 1):
             self.get_logger().error('Incorrrect number of args given to Stop: {}'.format(len(argv)))
             return -1
@@ -30,7 +28,7 @@ class Stop(MoveParent):
                 self.pause = pause_arg
                 pause_duration = Duration(seconds=pause_arg)
                 self.end_pause_time = self.get_clock().now() + pause_duration  # time when pause ends
-                self.get_logger().info('Stop is using supplied pause {}'.format(pause_arg))
+                self.get_logger().info('Stop will use supplied pause {}'.format(pause_arg))
                 return 1
             except ValueError:
                 self.get_logger().error('Invalid argument given: {}'.format(argv))
@@ -42,7 +40,7 @@ class Stop(MoveParent):
 
     # return True if motion is done
     def run(self):
-        if not self.odom_started:
+        if not self.is_odom_started():
             self.get_logger().error('ERROR: robot odometry has not started - exiting')
             return True
 
@@ -67,13 +65,27 @@ class Stop(MoveParent):
         return False
 
     def start_action_server(self):
-        self.get_logger().info('Stop.start_action_server calling superclass')
-        create_action_server('stop', self.stop_action_exec_cb)
+        self.create_action_server('stop', self.stop_action_exec_cb)
 
     def stop_action_exec_cb(self):
         self.get_logger().info('stop action_exec_cb called')
-        time.sleep(5)
-        print('stop action_exec_cb finished')
+
+        loop_period = 0.1
+        feedback_period = 10    # give feedback every this-many loops
+        loop_count = 0
+        try:
+            while (rclpy.ok()):
+                if self.run():
+                    break
+                time.sleep(loop_period)
+                loop_count += 1
+                if ((loop_count % feedback_period) == 0):
+                    self.send_feedback('slowing or pausing: ', float(loop_count * loop_period))
+        except Exception as e:
+            print(e)
+
+        results = [self.pause]
+        return results
 
     def usage():
         print('Usage: stop.py [pause] - ramp down linear & rotational speed & pause if pause is not zero')
@@ -85,7 +97,7 @@ def main():
 
     nh.start_action_server()
 
-    rclpy.spin()
+    rclpy.spin(nh)
 
 
 if __name__ == '__main__':

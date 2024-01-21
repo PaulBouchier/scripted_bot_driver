@@ -51,14 +51,15 @@ def main():
 
     nh.print()
 
+    # set up the rate object that we sleep on
+    loop_rate = 10       # loop rate
     nh.start_spin_thread()  # make rate work
+    r = nh.create_rate(loop_rate)
+
     # pause until odometry is received
     while not nh.is_odom_started():
         time.sleep(1)
         nh.get_logger().info('slept on odometry')
-
-    loop_rate = 10       # loop rate
-    r = nh.create_rate(loop_rate)
 
     try:
         while (rclpy.ok()):

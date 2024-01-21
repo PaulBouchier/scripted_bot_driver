@@ -7,7 +7,7 @@
   <maintainer email="paul.bouchier@gmail.com">Paul Bouchier</maintainer>
   <license>Apache-2.0</license>
 
-  <depend scripted_bot_interfaces>
+  <depend>scripted_bot_interfaces</depend>
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
