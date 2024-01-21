@@ -20,10 +20,11 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'move_bot.py = scripted_bot_driver.move_bot:main',
-            'drive_straight_odom.py = scripted_bot_driver.drive_straight_odom:main',
-            'stop.py = scripted_bot_driver.stop:main',
-            'move_parent.py = scripted_bot_driver.move_parent:main',
+            'move_bot = scripted_bot_driver.move_bot:main',
+            'drive_straight_odom = scripted_bot_driver.drive_straight_odom:main',
+            'stop = scripted_bot_driver.stop:main',
+            'move_parent = scripted_bot_driver.move_parent:main',
+            'scripted_mover = scripted_bot_driver.scripted_mover:main',
         ],
     },
 )

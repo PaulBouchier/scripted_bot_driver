@@ -110,6 +110,10 @@ class MoveParent(Node):
 
     # handle the goal by parsing the move_spec
     def goal_callback(self, goal_request):
+        if (not self.is_odom_started()):
+            # odom not started - return abort
+            self.get_logger().error('stop action failed - odometry not running')
+            return GoalResponse.REJECT
         # parse the move_spec specified in the goal
         if (self.parse_argv(goal_request.move_spec) < 0):
             # parsing args failed - return abort
@@ -123,14 +127,10 @@ class MoveParent(Node):
         self._goal_handle = goal_handle
         move_results = []
 
-        if (not self.is_odom_started()):
-            # odom not started - return abort
-            self.get_logger().error('stop action failed - odometry not running')
-        else:
-            # call the execute callback to perform the move(s)
-            move_results = self.execute_cb()
-            goal_handle.succeed()
-            self.get_logger().info('action finished with success, results: {}'.format(move_results))
+        # call the execute callback to perform the move(s)
+        move_results = self.execute_cb()
+        goal_handle.succeed()
+        self.get_logger().info('action finished with success, results: {}'.format(move_results))
 
         move_result = Move.Result()
         move_result.move_results = move_results

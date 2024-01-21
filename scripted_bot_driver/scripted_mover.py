@@ -59,7 +59,7 @@ def main(args=None):
 
     move_client = ScriptedMover()
 
-    future = move_client.send_drive_straight_goal(['3'])
+    future = move_client.send_drive_straight_goal(['2'])
 
     rclpy.spin(move_client)
 
