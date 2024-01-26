@@ -59,8 +59,7 @@ class DriveStraightOdom(MoveParent):
         if self.run_once:
             self.initial_x = self.odom.pose.pose.position.x
             self.initial_y = self.odom.pose.pose.position.y
-            self.get_logger().info('Initial X-Y: {} {}, goal distance: {}'.format(
-                self.initial_x, self.initial_y, self.distance))
+            self.get_logger().info('Initial X-Y: {} {}, goal distance: {}'.format(self.initial_x, self.initial_y, self.distance))
             self.debug_msg.initial_x = self.initial_x
             self.debug_msg.initial_y = self.initial_y
             self.run_once = False
@@ -68,17 +67,14 @@ class DriveStraightOdom(MoveParent):
         delta_x = self.odom.pose.pose.position.x - self.initial_x
         delta_y = self.odom.pose.pose.position.y - self.initial_y
         self.delta_odom = sqrt(pow(delta_x, 2) + pow(delta_y, 2))
-        #print('delta_x: {} delta_y: {} delta_odom: {} x {}'.format(delta_x, delta_y, self.delta_odom, self.odom.pose.pose.position.x))
+        # self.get_logger().info('x: {} delta_x: {} delta_y: {} delta_odom: {}'.format(self.odom.pose.pose.position.x, delta_x, delta_y, self.delta_odom))
 
         if (self.delta_odom > self.distance):
             self.get_logger().info('traveled: {} m'.format(self.delta_odom))
             return True
 
         # accelerate to full speed as long as we haven't reached the goal
-        if self.distance >= 0:
-            self.send_move_cmd(self.slew_vel(self.speed), self.slew_rot(0.0))
-        else:
-            self.send_move_cmd(self.slew_vel(-self.speed), self.slew_rot(0.0))
+        self.send_move_cmd(self.slew_vel(self.speed), self.slew_rot(0.0))
         
         # publish debug data
         self.debug_msg.delta_odom = self.delta_odom
@@ -93,11 +89,12 @@ class DriveStraightOdom(MoveParent):
         self.create_action_server('drive_straight_odom', self.drive_straight_action_exec_cb)
 
     def drive_straight_action_exec_cb(self):
-        self.get_logger().info('drive_straight_odom action_exec_cb called')
+        self.print()
 
         loop_period = 0.1
         feedback_period = 10    # give feedback every this-many loops
         loop_count = 0
+        self.get_logger().info('starting to call run()')
         try:
             while (rclpy.ok()):
                 if self.run():
@@ -110,7 +107,11 @@ class DriveStraightOdom(MoveParent):
         except Exception as e:
             print(e)
 
+        # clean up after a move and reset defaults for next move
+        self.get_logger().info('drive_straight_action_exec_cb done()')
         self.run_once = True
+        self.set_defaults()
+
         results = [self.delta_odom]
         return results
 

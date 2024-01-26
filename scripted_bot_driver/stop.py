@@ -12,9 +12,10 @@ from scripted_bot_driver.move_parent import MoveParent
 class Stop(MoveParent):
     def __init__(self):
         super().__init__('stop')
+        self.once = True
 
     def parse_argv(self, argv):
-        self.pause = 0            # pause after stop, in seconds
+        self.pause = 0.0            # pause after stop, in seconds
         self.end_pause_time = self.get_clock().now() # time when pause ends
 
         if (len(argv) != 0 and len(argv) != 1):
@@ -52,8 +53,8 @@ class Stop(MoveParent):
             self.once = False
 
         # loop sending stop commands until both linear & angular request stopped
-        if (abs(self.commandedLinear) < 0.01 and
-            abs(self.commandedAngular) < 0.01):
+        if (abs(self.odom.twist.twist.linear.x) < 0.01 and
+            abs(self.odom.twist.twist.angular.z) < 0.01):
             self.send_move_cmd(0.0, 0.0)   # stop the robot
             if self.get_clock().now() > self.end_pause_time:
                 self.get_logger().info('Stop paused for {} seconds'.format(self.pause))
@@ -61,7 +62,7 @@ class Stop(MoveParent):
             else:
                 return False
 
-        self.send_move_cmd(self.slew_vel(0), self.slew_rot(0))
+        self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
         return False
 
     def start_action_server(self):
@@ -93,9 +94,10 @@ class Stop(MoveParent):
 
 def main():
     rclpy.init()
-    nh = Stop()
 
+    nh = Stop()
     nh.start_action_server()
+    nh.start_spin_thread()
 
     rclpy.spin(nh)
 

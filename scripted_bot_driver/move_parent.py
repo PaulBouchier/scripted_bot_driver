@@ -4,7 +4,6 @@
 This is the parent class of several move child classes.
 It provides support commont to all the move classes
 '''
-import sys
 import time
 import threading
 
@@ -30,15 +29,9 @@ class MoveParent(Node):
     def __init__(self, node_name):
         super().__init__(node_name)
         self.node_name = node_name
-        self.once = True
-        self.speed = speed_default
-        self.full_speed = speed_default
-        self.low_speed = low_speed_default
-        self.rot_speed = rot_speed_default
-        self.full_rot_speed = rot_speed_default
-        self.low_rot_speed = low_rot_speed_default
-        self.commandedLinear = 0
-        self.commandedAngular = 0
+        self.set_defaults()
+        self.commandedLinear = 0.0
+        self.commandedAngular = 0.0
 
         # subscribers to robot data
         self.odom = Odometry()
@@ -67,9 +60,11 @@ class MoveParent(Node):
         self.cmd_vel_pub.publish(self.move_cmd)
 
     def slew_vel(self, to):
+        #return self.slew(self.odom.twist.twist.linear.x, to, vel_slew_rate)
         return self.slew(self.commandedLinear, to, vel_slew_rate)
 
     def slew_rot(self, to):
+        #return self.slew(self.odom.twist.twist.angular.z, to, rot_slew_rate)
         return self.slew(self.commandedAngular, to, rot_slew_rate)
 
     def slew(self, current, to, slew_rate):
@@ -86,6 +81,14 @@ class MoveParent(Node):
     
     def is_odom_started(self):
         return self.odom_started
+
+    def set_defaults(self):
+        self.speed = speed_default
+        self.full_speed = speed_default
+        self.low_speed = low_speed_default
+        self.rot_speed = rot_speed_default
+        self.full_rot_speed = rot_speed_default
+        self.low_rot_speed = low_rot_speed_default
 
     # implement a thread that keeps calling spin_once() so rate.sleep() will work
     def spin_thread_entry(self):
