@@ -1,0 +1,11 @@
+launch:  
+  
+- node:  
+    pkg: 'scripted_bot_driver'  
+    exec: 'stop'  
+    name: 'stop'  
+
+- node:  
+    pkg: 'scripted_bot_driver'  
+    exec: 'drive_straight_odom'  
+    name: 'drive_straight_odom'  

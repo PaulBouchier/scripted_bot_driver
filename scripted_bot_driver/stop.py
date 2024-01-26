@@ -53,9 +53,11 @@ class Stop(MoveParent):
             self.once = False
 
         # loop sending stop commands until both linear & angular request stopped
-        if (abs(self.odom.twist.twist.linear.x) < 0.01 and
-            abs(self.odom.twist.twist.angular.z) < 0.01):
-            self.send_move_cmd(0.0, 0.0)   # stop the robot
+        linear = self.odom.twist.twist.linear.x
+        angular = self.odom.twist.twist.angular.z
+        if (abs(linear) < 0.01 and abs(angular) < 0.01):
+            self.get_logger().info('linear: {} angular {}'.format(linear, angular))
+            self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))   # stop the robot
             if self.get_clock().now() > self.end_pause_time:
                 self.get_logger().info('Stop paused for {} seconds'.format(self.pause))
                 return True
@@ -74,6 +76,9 @@ class Stop(MoveParent):
         loop_period = 0.1
         feedback_period = 10    # give feedback every this-many loops
         loop_count = 0
+        # set commanded linear/angular from current linear/angular to pick up current vel from which to slew
+        self.commandedLinear = self.odom.twist.twist.linear.x
+        self.commandedAngular = self.odom.twist.twist.angular.z
         try:
             while (rclpy.ok()):
                 if self.run():

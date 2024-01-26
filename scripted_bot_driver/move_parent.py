@@ -19,7 +19,7 @@ from scripted_bot_interfaces.action import Move
 loop_rate = 10       # loop rate
 speed_default = 0.35    # driving speed, fwd or back
 low_speed_default = 0.15
-vel_slew_rate = 0.25 / loop_rate  # m/s^2 per loop
+vel_slew_rate = 0.5 / loop_rate  # m/s^2 per loop
 rot_speed_default = 0.25    # rotating speed, rad/s
 low_rot_speed_default = 0.25
 rot_slew_rate = 0.5 / loop_rate  # rad/s^2
@@ -129,6 +129,10 @@ class MoveParent(Node):
     def call_exec_cb(self, goal_handle):
         self._goal_handle = goal_handle
         move_results = []
+
+        # set commanded linear/angular from current linear/angular to pick up current vel from which to slew
+        self.commandedLinear = self.odom.twist.twist.linear.x
+        self.commandedAngular = self.odom.twist.twist.angular.z
 
         # call the execute callback to perform the move(s)
         move_results = self.execute_cb()

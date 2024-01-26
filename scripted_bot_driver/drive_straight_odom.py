@@ -67,7 +67,7 @@ class DriveStraightOdom(MoveParent):
         delta_x = self.odom.pose.pose.position.x - self.initial_x
         delta_y = self.odom.pose.pose.position.y - self.initial_y
         self.delta_odom = sqrt(pow(delta_x, 2) + pow(delta_y, 2))
-        # self.get_logger().info('x: {} delta_x: {} delta_y: {} delta_odom: {}'.format(self.odom.pose.pose.position.x, delta_x, delta_y, self.delta_odom))
+        # self.get_logger().info('delta_x: {} delta_y: {} delta_odom: {}'.format(delta_x, delta_y, self.delta_odom))
 
         if (self.delta_odom > self.distance):
             self.get_logger().info('traveled: {} m'.format(self.delta_odom))
