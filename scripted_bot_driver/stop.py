@@ -12,9 +12,9 @@ from scripted_bot_driver.move_parent import MoveParent
 class Stop(MoveParent):
     def __init__(self):
         super().__init__('stop')
-        self.once = True
 
     def parse_argv(self, argv):
+        self.run_once = True
         self.pause = 0.0            # pause after stop, in seconds
         self.end_pause_time = self.get_clock().now() # time when pause ends
 
@@ -45,18 +45,18 @@ class Stop(MoveParent):
             self.get_logger().error('ERROR: robot odometry has not started - exiting')
             return True
 
-        if self.once:
+        if self.run_once:
             self.get_logger().info('Stopping from speed: {}, rot_speed: {} then pausing {} sec'.format(
                 self.odom.twist.twist.linear.x,
                 self.odom.twist.twist.angular.z,
                 self.pause))
-            self.once = False
+            self.run_once = False
 
         # loop sending stop commands until both linear & angular request stopped
         linear = self.odom.twist.twist.linear.x
         angular = self.odom.twist.twist.angular.z
         if (abs(linear) < 0.01 and abs(angular) < 0.01):
-            self.get_logger().info('linear: {} angular {}'.format(linear, angular))
+            self.get_logger().debug('linear: {} angular {}'.format(linear, angular))
             self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))   # stop the robot
             if self.get_clock().now() > self.end_pause_time:
                 self.get_logger().info('Stop paused for {} seconds'.format(self.pause))
@@ -71,14 +71,9 @@ class Stop(MoveParent):
         self.create_action_server('stop', self.stop_action_exec_cb)
 
     def stop_action_exec_cb(self):
-        self.get_logger().info('stop action_exec_cb called')
-
         loop_period = 0.1
         feedback_period = 10    # give feedback every this-many loops
         loop_count = 0
-        # set commanded linear/angular from current linear/angular to pick up current vel from which to slew
-        self.commandedLinear = self.odom.twist.twist.linear.x
-        self.commandedAngular = self.odom.twist.twist.angular.z
         try:
             while (rclpy.ok()):
                 if self.run():

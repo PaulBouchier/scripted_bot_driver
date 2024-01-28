@@ -9,6 +9,7 @@ from rclpy.duration import Duration
 
 from scripted_bot_driver.stop import Stop
 from scripted_bot_driver.drive_straight_odom import DriveStraightOdom
+from scripted_bot_driver.drive_waypoints import DriveWaypoints
 
 
 loop_rate = 10       # loop rate
@@ -19,7 +20,7 @@ def usage():
     print('movo <distance> [speed] - drive straight for <distance> meters')
     print('arc <angle> <radius> <f | b> - drive an arc of <radius> subtending <angle> degrees forward or backward')
     print('roto <angle> [speed] - rotate <angle> degrees, +ve is CCW')
-    print('nav <target_x> <target_y> [ more_targets ] - navigate to a list of targets')
+    print('drv_waypts <target_x> <target_y> [ more_targets ] - navigate to a list of targets')
     print('stop - ramp linear and rotational speed down to 0 with optional pause at end')
     sys.exit()
 
@@ -38,6 +39,8 @@ def main():
             nh = Stop()
         case 'movo':
             nh = DriveStraightOdom()
+        case 'drv_waypts':
+            nh = DriveWaypoints()
         case _:
             print('Error: invalid command %s'%(sys.argv[1]))
             usage()
@@ -47,7 +50,6 @@ def main():
     if (argv_index < 0):
         print('ERROR parsing args - exiting')
         sys.exit()
-        raise ValueError('Error: invalid parameters')
 
     nh.print()
 
@@ -63,6 +65,7 @@ def main():
 
     try:
         while (rclpy.ok()):
+            # import pdb; pdb.set_trace()
             if nh.run():
                 break
             r.sleep()

@@ -5,7 +5,6 @@ import time
 from math import pow, sqrt
 
 import rclpy
-from rclpy.duration import Duration
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_interfaces.msg import DriveStraightDebug
@@ -14,12 +13,10 @@ from scripted_bot_interfaces.msg import DriveStraightDebug
 class DriveStraightOdom(MoveParent):
     def __init__(self):
         super().__init__('drive_straight')
-        self.run_once = True
 
         # Publisher for debug data
         self.debug_msg = DriveStraightDebug()
-        self.debug_pub = self.create_publisher(
-            DriveStraightDebug, 'drive_straight_debug', 10)
+        self.debug_pub = self.create_publisher(DriveStraightDebug, 'drive_straight_debug', 10)
 
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
@@ -27,7 +24,7 @@ class DriveStraightOdom(MoveParent):
         self.delta_odom = 0.0
 
         if (len(argv) != 1 and len(argv) != 2):
-            self.get_logger().error('Incorrrect number of args given to DriveStraightOdom: {}'.format(len(argv)))
+            self.get_logger().fatal('Incorrrect number of args given to DriveStraightOdom: {}'.format(len(argv)))
             return -1
 
         try:
@@ -40,7 +37,7 @@ class DriveStraightOdom(MoveParent):
             # a supplied speed argument overrides everything
             if len(argv) == 2:
                 self.speed = float(argv[1])
-                print('Using supplied speed {}'.format(self.speed))
+                self.get_logger().info('Using supplied speed {}'.format(self.speed))
         except ValueError:
             self.get_logger().error('Invalid argument given: {}'.format(argv))
             return -1
@@ -89,23 +86,20 @@ class DriveStraightOdom(MoveParent):
         self.create_action_server('drive_straight_odom', self.drive_straight_action_exec_cb)
 
     def drive_straight_action_exec_cb(self):
-        self.print()
-
         loop_period = 0.1
         feedback_period = 10    # give feedback every this-many loops
         loop_count = 0
-        self.get_logger().info('starting to call run()')
         try:
             while (rclpy.ok()):
                 if self.run():
                     break
                 loop_count += 1
                 if ((loop_count % feedback_period) == 0):
-                    self.send_feedback('Driving straight at {}, traveled: '.format(
+                    self.send_feedback('Driving straight at {}, progress: '.format(
                         self.commandedLinear), self.delta_odom)
                 time.sleep(loop_period)
         except Exception as e:
-            print(e)
+            self.get_logger().error(e)
 
         # clean up after a move and reset defaults for next move
         self.get_logger().info('drive_straight_action_exec_cb done()')

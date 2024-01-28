@@ -127,6 +127,8 @@ class MoveParent(Node):
 
     # call the subclass execute callback
     def call_exec_cb(self, goal_handle):
+        self.get_logger().info('{} action_exec_cb called'.format(self.action_name))
+        self.print()
         self._goal_handle = goal_handle
         move_results = []
 
@@ -134,17 +136,23 @@ class MoveParent(Node):
         self.commandedLinear = self.odom.twist.twist.linear.x
         self.commandedAngular = self.odom.twist.twist.angular.z
 
+        # set up to loop on run() and send periodic feedback
+        loop_period = 0.1
+        feedback_period = 10    # give feedback every this-many loops
+        loop_count = 0
+
         # call the execute callback to perform the move(s)
         move_results = self.execute_cb()
         goal_handle.succeed()
-        self.get_logger().info('action finished with success, results: {}'.format(move_results))
 
         move_result = Move.Result()
         move_result.move_results = move_results
+        self.get_logger().info('action finished with success, results: {}'.format(move_results))
         return move_result
 
     # start action server
     def create_action_server(self, action_name, execute_cb):
+        self.action_name = action_name
         self.execute_cb = execute_cb
         self.get_logger().info('starting action server for action {}'.format(action_name))
         self._goal_handle = None
