@@ -83,27 +83,16 @@ class DriveStraightOdom(MoveParent):
         return False
 
     def start_action_server(self):
-        self.create_action_server('drive_straight_odom', self.drive_straight_action_exec_cb)
+        self.create_action_server('drive_straight_odom')
 
-    def drive_straight_action_exec_cb(self):
-        loop_period = 0.1
-        feedback_period = 10    # give feedback every this-many loops
-        loop_count = 0
-        try:
-            while (rclpy.ok()):
-                if self.run():
-                    break
-                loop_count += 1
-                if ((loop_count % feedback_period) == 0):
-                    self.send_feedback('Driving straight at {}, progress: '.format(
-                        self.commandedLinear), self.delta_odom)
-                time.sleep(loop_period)
-        except Exception as e:
-            self.get_logger().error(e)
+    def get_feedback(self):
+        text_feedback = 'Driving straight at {}, progress: '.format(
+            self.commandedLinear)
+        progress_feedback = self.delta_odom
+        return text_feedback, progress_feedback
 
+    def finish_cb(self):
         # clean up after a move and reset defaults for next move
-        self.get_logger().info('drive_straight_action_exec_cb done()')
-        self.run_once = True
         self.set_defaults()
 
         results = [self.delta_odom]

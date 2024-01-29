@@ -21,8 +21,9 @@ class SingleMoveDescriptor():
 class ScriptedMover(Node):
     def __init__(self):
         super().__init__('scripted_mover_client')
-        self._stop_client = ActionClient(self, Move, 'stop')
-        self._drive_straight_client = ActionClient(self, Move, 'drive_straight_odom')
+        self.stop_client = ActionClient(self, Move, 'stop')
+        self.drive_straight_client = ActionClient(self, Move, 'drive_straight_odom')
+        self.drive_waypoints_client = ActionClient(self, Move, 'drive_waypoints')
 
         # Create a thread to process supplied arguments and send action requests
         #self.action_thread = threading.Thread(target=self.action_thread_entry)
@@ -33,7 +34,7 @@ class ScriptedMover(Node):
         current_arg = 0
         self.single_moves = []
         self.current_single_move = 0
-        supported_moves = ['stop', 'movo']
+        supported_moves = ['stop', 'movo', 'drive_waypoints']
 
         print('argv: {}'.format(argv))
         while current_arg != len(argv):
@@ -43,6 +44,8 @@ class ScriptedMover(Node):
                     move_type = 'stop'
                 case 'movo':
                     move_type = 'drive_straight'
+                case 'drive_waypoints':
+                    move_type = 'drive_waypoints'
                 case _:
                     self.get_logger().fatal('Error - unknown move type {}'.format(argv[current_arg]))
                     rclpy.shutdown()
@@ -72,39 +75,32 @@ class ScriptedMover(Node):
 
         match(single_move.move_type):
             case 'stop':
-                self.send_stop_goal(single_move.move_spec)
+                self.send_goal(self.stop_client, single_move.move_spec)
+                self.get_logger().info('sent stop goal')
             case 'drive_straight':
-                self.send_drive_straight_goal(single_move.move_spec)
+                self.send_goal(self.drive_straight_client, single_move.move_spec)
+                self.get_logger().info('sent drive_straight goal')
+            case 'drive_waypoints':
+                self.send_goal(self.drive_waypoints_client, single_move.move_spec)
+                self.get_logger().info('sent drive waypoints goal')
             case _:
                 self.get_logger().fatal('ERROR: requested to run unsupported move {}'.format(single_move.move_type))
                 rclpy.shutdown()
 
+    def send_goal(self, client, move_spec):
+        goal_msg = Move.Goal()
+        goal_msg.move_spec = move_spec
+
+        client.wait_for_server()
+
+        self._send_goal_future = client.send_goal_async(
+            goal_msg, feedback_callback=self.feedback_cb)
+        self._send_goal_future.add_done_callback(self.goal_response_callback)
+
         
-    def send_stop_goal(self, move_spec):
-        goal_msg = Move.Goal()
-        goal_msg.move_spec = move_spec
-
-        self._stop_client.wait_for_server()
-
-        self._send_goal_future = self._stop_client.send_goal_async(
-            goal_msg, feedback_callback=self.feedback_cb)
-        self._send_goal_future.add_done_callback(self.goal_response_callback)
-        self.get_logger().info('sent stop goal')
-
-    def send_drive_straight_goal(self, move_spec):
-        goal_msg = Move.Goal()
-        goal_msg.move_spec = move_spec
-
-        self._drive_straight_client.wait_for_server()
-
-        self._send_goal_future = self._drive_straight_client.send_goal_async(
-            goal_msg, feedback_callback=self.feedback_cb)
-        self._send_goal_future.add_done_callback(self.goal_response_callback)
-        self.get_logger().info('sent drive_straight goal')
-
     def feedback_cb(self, feedback_msg):
         feedback = feedback_msg.feedback
-        self.get_logger().info('{} {}'.format(feedback.feedback_text, feedback.progress))
+        self.get_logger().info('{} {:0.2f}'.format(feedback.feedback_text, feedback.progress))
 
 
     def goal_response_callback(self, future):

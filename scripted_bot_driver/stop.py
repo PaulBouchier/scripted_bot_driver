@@ -51,6 +51,7 @@ class Stop(MoveParent):
                 self.odom.twist.twist.angular.z,
                 self.pause))
             self.run_once = False
+            self.start_time = time.time()
 
         # loop sending stop commands until both linear & angular request stopped
         linear = self.odom.twist.twist.linear.x
@@ -68,23 +69,13 @@ class Stop(MoveParent):
         return False
 
     def start_action_server(self):
-        self.create_action_server('stop', self.stop_action_exec_cb)
+        self.create_action_server('stop')
 
-    def stop_action_exec_cb(self):
-        loop_period = 0.1
-        feedback_period = 10    # give feedback every this-many loops
-        loop_count = 0
-        try:
-            while (rclpy.ok()):
-                if self.run():
-                    break
-                time.sleep(loop_period)
-                loop_count += 1
-                if ((loop_count % feedback_period) == 0):
-                    self.send_feedback('slowing or pausing: ', float(loop_count * loop_period))
-        except Exception as e:
-            print(e)
+    def get_feedback(self):
+        progress = time.time() - self.start_time
+        return 'slowing or pausing: ', progress
 
+    def finish_cb(self):
         results = [self.pause]
         return results
 

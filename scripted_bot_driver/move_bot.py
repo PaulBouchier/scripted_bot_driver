@@ -39,7 +39,7 @@ def main():
             nh = Stop()
         case 'movo':
             nh = DriveStraightOdom()
-        case 'drv_waypts':
+        case 'drive_waypoints':
             nh = DriveWaypoints()
         case _:
             print('Error: invalid command %s'%(sys.argv[1]))

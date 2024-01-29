@@ -105,7 +105,7 @@ class MoveParent(Node):
     def send_feedback(self, msg, progress):
         self.feedback_msg.feedback_text = msg
         self.feedback_msg.progress = progress
-        self.get_logger().info('Feedback: {} {}'.format(
+        self.get_logger().info('Feedback: {} {:0.2f}'.format(
             self.feedback_msg.feedback_text,
             self.feedback_msg.progress))
         self._goal_handle.publish_feedback(self.feedback_msg)
@@ -141,8 +141,20 @@ class MoveParent(Node):
         feedback_period = 10    # give feedback every this-many loops
         loop_count = 0
 
-        # call the execute callback to perform the move(s)
-        move_results = self.execute_cb()
+        # call the run callback in a loop to perform the move
+        try:
+            while (rclpy.ok()):
+                if self.run():
+                    break
+                loop_count += 1
+                if ((loop_count % feedback_period) == 0):
+                    text_feedback, progress_feedback = self.get_feedback()
+                    self.send_feedback(text_feedback, progress_feedback)
+                time.sleep(loop_period)
+        except Exception as e:
+            self.get_logger().error(e)
+
+        move_results = self.finish_cb()
         goal_handle.succeed()
 
         move_result = Move.Result()
@@ -151,9 +163,8 @@ class MoveParent(Node):
         return move_result
 
     # start action server
-    def create_action_server(self, action_name, execute_cb):
+    def create_action_server(self, action_name):
         self.action_name = action_name
-        self.execute_cb = execute_cb
         self.get_logger().info('starting action server for action {}'.format(action_name))
         self._goal_handle = None
         self._goal_lock = threading.Lock()

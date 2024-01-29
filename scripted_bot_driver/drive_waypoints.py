@@ -79,6 +79,7 @@ class DriveWaypoints(MoveParent):
 
             self.get_logger().info('Start driving to: [{}, {}] distance: {:.02f} bearing: {:.02f}, at_target: {}'.format(
                 target_x, target_y, self.distance, self.bearing, at_target))
+            self.initial_distance = self.distance
             self.run_once = False
 
         if self.navigate_target(target_x, target_y):
@@ -193,6 +194,20 @@ class DriveWaypoints(MoveParent):
     def pub_waypoints_debug(self, event):
         self.waypoints_debug_pub.publish(self.debug_msg)
 
+
+    def start_action_server(self):
+        self.create_action_server('drive_waypoints')
+
+    def get_feedback(self):
+        target_x, target_y = self.target_list[self.current_target].get_xy()
+        text_feedback = 'Driving to {} {}, progress %: '.format(
+            target_x, target_y)
+        progress_feedback = ((self.initial_distance - self.distance) / self.initial_distance) * 100
+        return text_feedback, progress_feedback
+
+    def finish_cb(self):
+        results = [self.distance]
+        return results
 
     def usage():
         print('Usage: drive_waypoints.py <target_x> <target_y> [ more_targets ] - navigate to a list of targets')
