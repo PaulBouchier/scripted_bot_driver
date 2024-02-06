@@ -144,7 +144,7 @@ def usage():
     print('movo <distance> [speed] - drive straight for <distance> meters')
     print('arc <angle> <radius> <f | b>')
     print('roto <angle> [speed] - rotate <angle> degrees, +ve is CCW')
-    print('nav <target_x> <target_y> [ more_targets ] - navigate to a list of targets')
+    print('drive_waypoints <target_x> <target_y> [ more_targets ] - drive to a list of targets')
     print('stop - ramp linear and rotational speed down to 0 with optional pause at end')
     sys.exit()
 

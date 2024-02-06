@@ -26,7 +26,7 @@ class DriveWaypoints(MoveParent):
         super().__init__('drive_waypoints')
 
         self.debug_msg = WaypointsDebug()
-        self.debug_pub = self.create_publisher(WaypointsDebug, '/waypoints_debug', 10)
+        self.debug_pub = self.create_publisher(WaypointsDebug, 'waypoints_debug', 10)
 
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
@@ -174,6 +174,8 @@ class DriveWaypoints(MoveParent):
         self.debug_msg.distance = distance
         self.debug_msg.bearing = bearing
         self.debug_msg.bearing_normalized = bearing_normalized
+        self.debug_pub.publish(self.debug_msg)
+
 
         return at_target, distance, bearing_normalized
 
@@ -190,10 +192,6 @@ class DriveWaypoints(MoveParent):
         if angle < -pi:
             angle += 2 * pi
         return angle
-
-    def pub_waypoints_debug(self, event):
-        self.waypoints_debug_pub.publish(self.debug_msg)
-
 
     def start_action_server(self):
         self.create_action_server('drive_waypoints')
