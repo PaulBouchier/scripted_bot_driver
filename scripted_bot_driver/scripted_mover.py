@@ -142,10 +142,10 @@ def usage():
     print('Usage: scripted_mover.py [commands] - executes the series of move commands provided')
     print('Supported move commands are:')
     print('movo <distance> [speed] - drive straight for <distance> meters')
-    print('arc <angle> <radius> <f | b>')
-    print('roto <angle> [speed] - rotate <angle> degrees, +ve is CCW')
+    #print('arc <angle> <radius> <f | b>')
+    #print('roto <angle> [speed] - rotate <angle> degrees, +ve is CCW')
     print('drive_waypoints <target_x> <target_y> [ more_targets ] - drive to a list of targets')
-    print('stop - ramp linear and rotational speed down to 0 with optional pause at end')
+    print('stop [delay]- ramp linear and rotational speed down to 0 with optional pause at end')
     sys.exit()
 
 def main(args=None):
