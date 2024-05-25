@@ -39,17 +39,16 @@ class ScriptedMover(Node):
         print('argv: {}'.format(argv))
         while current_arg != len(argv):
             # extract the move_type from argv
-            match argv[current_arg]:
-                case 'stop':
-                    move_type = 'stop'
-                case 'movo':
-                    move_type = 'drive_straight'
-                case 'drive_waypoints':
-                    move_type = 'drive_waypoints'
-                case _:
-                    self.get_logger().fatal('Error - unknown move type {}'.format(argv[current_arg]))
-                    rclpy.shutdown()
-                    sys.exit()
+            if argv[current_arg] == 'stop':
+                move_type = 'stop'
+            elif argv[current_arg] == 'movo':
+                move_type = 'drive_straight'
+            elif argv[current_arg] == 'drive_waypoints':
+                move_type = 'drive_waypoints'
+            else:
+                self.get_logger().fatal('Error - unknown move type {}'.format(argv[current_arg]))
+                rclpy.shutdown()
+                sys.exit()
             self.get_logger().info('found move type {}'.format(move_type))
 
             # extract move_spec args (if any)
