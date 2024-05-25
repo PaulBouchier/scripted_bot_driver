@@ -72,19 +72,18 @@ class ScriptedMover(Node):
         single_move = self.single_moves[self.current_single_move]
         self.current_single_move += 1   # prep for next move
 
-        match(single_move.move_type):
-            case 'stop':
-                self.send_goal(self.stop_client, single_move.move_spec)
-                self.get_logger().info('sent stop goal')
-            case 'drive_straight':
-                self.send_goal(self.drive_straight_client, single_move.move_spec)
-                self.get_logger().info('sent drive_straight goal')
-            case 'drive_waypoints':
+        if(single_move.move_type == 'stop'):
+            self.send_goal(self.stop_client, single_move.move_spec)
+            self.get_logger().info('sent stop goal')
+        elif(single_move.move_type == 'drive_straight'):
+            self.send_goal(self.drive_straight_client, single_move.move_spec)
+            self.get_logger().info('sent drive_straight goal')
+        elif(single_move.move_type == 'drive_waypoints'):
                 self.send_goal(self.drive_waypoints_client, single_move.move_spec)
                 self.get_logger().info('sent drive waypoints goal')
-            case _:
-                self.get_logger().fatal('ERROR: requested to run unsupported move {}'.format(single_move.move_type))
-                rclpy.shutdown()
+        else:
+            self.get_logger().fatal('ERROR: requested to run unsupported move {}'.format(single_move.move_type))
+            rclpy.shutdown()
 
     def send_goal(self, client, move_spec):
         goal_msg = Move.Goal()
