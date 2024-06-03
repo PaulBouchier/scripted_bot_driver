@@ -67,16 +67,16 @@ class RotateOdom(MoveParent):
             self.odom.pose.pose.orientation.w,
         ]
         euler_angles = tf_transformations.euler_from_quaternion(q)
-        heading = self.normalize(euler_angles[2])  # range: -pi to +pi
+        self.heading = self.normalize(euler_angles[2])  # range: -pi to +pi
 
         if self.run_once:
-            self.heading_start = heading
-            self.heading_goal = heading + self.angle
-            self.crossing2pi = int(self.heading_goal / (2 * pi))                 # can take values -1, 0, 1. 0 means not crossing 2pi
-            self.heading_goal -= self.crossing2pi * 2 * pi                       # constrain heading_goal to +/- 2pi
+            self.heading_start = self.heading
+            self.heading_goal = self.heading + self.angle
+            self.crossing_pi = int(self.heading_goal / pi)                 # can take values -1, 0, 1. 0 means not crossing pi
+            self.heading_goal -= self.crossing_pi * 2 * pi                       # constrain heading_goal to +/- pi
             self.rot_stopping = False
 
-            self.get_logger().info('start heading: {:.2f}, goal: {:.2f}, crossing2pi: {}'.format(self.heading_start, self.heading_goal, self.crossing2pi))
+            self.get_logger().info('start heading: {:.2f}, goal: {:.2f}, crossing2pi: {}'.format(self.heading_start, self.heading_goal, self.crossing_pi))
             self.run_once = False
             self.rot_speed = self.full_rot_speed
             self.angular_cmd = 0.0
@@ -84,55 +84,60 @@ class RotateOdom(MoveParent):
         if self.rot_stopping:
             if abs(self.odom.twist.twist.angular.z) < 0.01:     # wait till we've stopped
                 self.run_once = True
-                self.get_logger().info('rotated: {} deg to heading {:.2f}'.format((heading - self.heading_start) * (180 / pi), heading))
+                self.get_logger().info('rotated: {} deg to heading {:.2f}'.format((self.heading - self.heading_start) * (180 / pi), self.heading))
                 return True
             else:
+                self.publish_debug()
                 return False
 
         # slow the rotation speed if we're getting close
-        if self.crossing2pi == 0:
-            if ((self.angle >= 0 and heading > (self.heading_goal - target_close_angle)) or
-                (self.angle < 0 and heading < (self.heading_goal + target_close_angle))):
+        if self.crossing_pi == 0:
+            if ((self.angle >= 0 and self.heading > (self.heading_goal - target_close_angle)) or
+                (self.angle < 0 and self.heading < (self.heading_goal + target_close_angle))):
                 self.rot_speed = self.low_rot_speed
 
         # stop if we've gone past the goal
-        if self.crossing2pi == 0 and \
-            ((self.angle >= 0 and heading >= self.heading_goal) or \
-            (self.angle < 0 and heading < self.heading_goal)):
+        if self.crossing_pi == 0 and \
+            ((self.angle >= 0 and self.heading >= self.heading_goal) or \
+            (self.angle < 0 and self.heading < self.heading_goal)):
 
             self.rot_speed = 0     # exceeded goal, stop immediately
             self.send_move_cmd(0.0, self.slew_rot(0.0))
             self.rot_stopping = True        # wait until we've stopped before exiting
 
+            self.publish_debug()
             return False
 
         # +ve angle means turn left. Adjust pi-crossing detection to avoid early exit without movement
         if self.angle >= 0:
             self.angular_cmd = self.slew_rot(self.rot_speed)
-            if ((self.crossing2pi != 0) and (heading < (self.heading_start - 0.1))):
-                self.crossing2pi = 0                 # robot crossed 2pi, now let the end-of-rotate logic work
+            if ((self.crossing_pi != 0) and (self.heading < (self.heading_start - 0.1))):
+                self.crossing_pi = 0                 # robot crossed 2pi, now let the end-of-rotate logic work
         else:
             self.angular_cmd = self.slew_rot(-self.rot_speed)
-            if ((self.crossing2pi != 0) and (heading > (self.heading_start + 0.1))):
-                self.crossing2pi = 0                 # robot crossed 2pi, now let the end-of-rotate logic work
+            if ((self.crossing_pi != 0) and (self.heading > (self.heading_start + 0.1))):
+                self.crossing_pi = 0                 # robot crossed 2pi, now let the end-of-rotate logic work
 
-        # self.get_logger().info(heading)
+        # self.get_logger().info(self.heading)
         self.send_move_cmd(0.0, self.angular_cmd)
 
         # publish debug data
+        self.publish_debug()
+
+        return False
+
+    def publish_debug(self):
         self.debug_msg.angle = self.angle
-        self.debug_msg.heading = heading
+        self.debug_msg.heading = self.heading
         self.debug_msg.heading_start = self.heading_start
         self.debug_msg.heading_goal = self.heading_goal
-        self.debug_msg.crossing_2pi = self.crossing2pi
+        self.debug_msg.crossing_pi = self.crossing_pi
         self.debug_msg.rot_stopping = self.rot_stopping
         self.debug_msg.rot_speed = self.rot_speed
         self.debug_msg.angular_cmd = self.angular_cmd
         self.debug_msg.commanded_linear = self.commandedLinear
         self.debug_msg.commanded_angular = self.commandedAngular
         self.debug_pub.publish(self.debug_msg)
-
-        return False
 
     def normalize(self, angle):     # normalize angle to +/- pi
         if angle > pi:
