@@ -79,10 +79,6 @@ class Stop(MoveParent):
         results = [self.pause]
         return results
 
-    def usage():
-        print('Usage: stop.py [pause] - ramp down linear & rotational speed & pause if pause is not zero')
-        sys.exit()
-
 def main():
     rclpy.init()
 

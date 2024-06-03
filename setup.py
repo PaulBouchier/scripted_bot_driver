@@ -28,6 +28,7 @@ setup(
             'drive_straight_odom = scripted_bot_driver.drive_straight_odom:main',
             'drive_waypoints = scripted_bot_driver.drive_waypoints:main',
             'stop = scripted_bot_driver.stop:main',
+            'rotate_odom = scripted_bot_driver.rotate_odom:main',
             'move_parent = scripted_bot_driver.move_parent:main',
             'scripted_mover = scripted_bot_driver.scripted_mover:main',
         ],

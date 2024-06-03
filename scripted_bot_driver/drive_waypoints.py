@@ -207,10 +207,6 @@ class DriveWaypoints(MoveParent):
         results = [self.distance]
         return results
 
-    def usage():
-        print('Usage: drive_waypoints.py <target_x> <target_y> [ more_targets ] - navigate to a list of targets')
-        sys.exit()
-
 def main():
     rclpy.init()
     nh = DriveWaypoints()

@@ -19,6 +19,13 @@ def generate_launch_description():
         ),
         Node(
             package='scripted_bot_driver',
+            executable='rotate_odom',
+            name='rotate_odom',
+            output='screen',
+            emulate_tty=True
+        ),
+        Node(
+            package='scripted_bot_driver',
             executable='drive_waypoints',
             name='drive_waypoints',
             output='screen',

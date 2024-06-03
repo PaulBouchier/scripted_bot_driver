@@ -60,11 +60,9 @@ class MoveParent(Node):
         self.cmd_vel_pub.publish(self.move_cmd)
 
     def slew_vel(self, to):
-        #return self.slew(self.odom.twist.twist.linear.x, to, vel_slew_rate)
         return self.slew(self.commandedLinear, to, vel_slew_rate)
 
     def slew_rot(self, to):
-        #return self.slew(self.odom.twist.twist.angular.z, to, rot_slew_rate)
         return self.slew(self.commandedAngular, to, rot_slew_rate)
 
     def slew(self, current, to, slew_rate):

@@ -98,10 +98,6 @@ class DriveStraightOdom(MoveParent):
         results = [self.delta_odom]
         return results
 
-    def usage():
-        print('Usage: drive_straight.py <distance> [speed] - drive the specified distance forward or backward, with optional speed')
-        sys.exit()
-
 def main():
     rclpy.init()
     nh = DriveStraightOdom()

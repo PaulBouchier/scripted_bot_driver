@@ -23,6 +23,7 @@ class ScriptedMover(Node):
         super().__init__('scripted_mover_client')
         self.stop_client = ActionClient(self, Move, 'stop')
         self.drive_straight_client = ActionClient(self, Move, 'drive_straight_odom')
+        self.rotate_odom_client = ActionClient(self, Move, 'rotate_odom')
         self.drive_waypoints_client = ActionClient(self, Move, 'drive_waypoints')
 
         # Create a thread to process supplied arguments and send action requests
@@ -34,7 +35,7 @@ class ScriptedMover(Node):
         current_arg = 0
         self.single_moves = []
         self.current_single_move = 0
-        supported_moves = ['stop', 'movo', 'drive_waypoints']
+        supported_moves = ['stop', 'movo', 'roto', 'drive_waypoints']
 
         print('argv: {}'.format(argv))
         while current_arg != len(argv):
@@ -43,6 +44,8 @@ class ScriptedMover(Node):
                 move_type = 'stop'
             elif argv[current_arg] == 'movo':
                 move_type = 'drive_straight'
+            elif argv[current_arg] == 'roto':
+                move_type = 'rotate'
             elif argv[current_arg] == 'drive_waypoints':
                 move_type = 'drive_waypoints'
             else:
@@ -78,6 +81,9 @@ class ScriptedMover(Node):
         elif(single_move.move_type == 'drive_straight'):
             self.send_goal(self.drive_straight_client, single_move.move_spec)
             self.get_logger().info('sent drive_straight goal')
+        elif(single_move.move_type == 'rotate'):
+            self.send_goal(self.rotate_odom_client, single_move.move_spec)
+            self.get_logger().info('sent rotate goal')
         elif(single_move.move_type == 'drive_waypoints'):
                 self.send_goal(self.drive_waypoints_client, single_move.move_spec)
                 self.get_logger().info('sent drive waypoints goal')
@@ -141,7 +147,7 @@ def usage():
     print('Supported move commands are:')
     print('movo <distance> [speed] - drive straight for <distance> meters')
     #print('arc <angle> <radius> <f | b>')
-    #print('roto <angle> [speed] - rotate <angle> degrees, +ve is CCW')
+    print('roto <angle> [speed] - rotate <angle> degrees, +ve is CCW. Speed, if given, sets direction.')
     print('drive_waypoints <target_x> <target_y> [ more_targets ] - drive to a list of targets')
     print('stop [delay]- ramp linear and rotational speed down to 0 with optional pause at end')
     sys.exit()
