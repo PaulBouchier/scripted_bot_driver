@@ -143,6 +143,7 @@ class MoveParent(Node):
         try:
             while (rclpy.ok()):
                 if self.run():
+                    print("calling self.run")
                     break
                 loop_count += 1
                 if ((loop_count % feedback_period) == 0):
@@ -150,6 +151,7 @@ class MoveParent(Node):
                     self.send_feedback(text_feedback, progress_feedback)
                 time.sleep(loop_period)
         except Exception as e:
+            print("Exception in call_exec_cb")
             self.get_logger().error(e)
 
         move_results = self.finish_cb()

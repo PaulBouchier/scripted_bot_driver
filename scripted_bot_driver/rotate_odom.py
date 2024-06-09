@@ -32,12 +32,13 @@ class RotateOdom(MoveParent):
             angle_deg = float(argv[0])  # pick off first arg from supplied list - angle to turn in deg - +ve = CCW
         except ValueError:
             self.get_logger().fatal('Rotation angle {} must be a float'.format(argv[0]))
+            return -1
 
         if angle_deg > 180.0 or angle_deg < -180.0:
             self.get_logger().fatal('Rotation angle ({} deg) must be between -180 and +180'.format(argv[0]))
             return -1
 
-        self.angle = angle_deg * (pi / 180) * angle_correction_sim  # angle to rotate through, rad
+        self.angle_to_turn = angle_deg * (pi / 180) * angle_correction_sim  # angle to rotate through, -pi to +pi
 
         # check whether a rot_speed argument was supplied
         if len(argv) > 1:
@@ -51,7 +52,7 @@ class RotateOdom(MoveParent):
         return 1            # return number of args consumed
 
     def print(self):
-        self.get_logger().info('rotate {} deg'.format(self.angle * 180 / pi))
+        self.get_logger().info('rotate {} deg'.format(self.angle_to_turn * 180 / pi))
 
     # run is called at the rate until it returns true
     def run(self):
@@ -67,19 +68,21 @@ class RotateOdom(MoveParent):
             self.odom.pose.pose.orientation.w,
         ]
         euler_angles = tf_transformations.euler_from_quaternion(q)
-        self.heading = self.normalize(euler_angles[2])  # range: -pi to +pi
+        self.euler_heading = euler_angles[2]  # should be 0 - 2pi increasing CCW from East at 0
+        self.heading = self.fixup_heading(euler_angles[2], self.angle_to_turn)  # range: -pi to +pi
 
         if self.run_once:
             self.heading_start = self.heading
-            self.heading_goal = self.heading + self.angle
-            self.crossing_pi = int(self.heading_goal / pi)                 # can take values -1, 0, 1. 0 means not crossing pi
-            self.heading_goal -= self.crossing_pi * 2 * pi                       # constrain heading_goal to +/- pi
+            self.heading_goal = self.heading + self.angle_to_turn  # goal can range 0 - 2pi for CCW and 0 - -2pi for CW turns
+            self.will_cross_pi = int(self.heading_goal / pi)  # values -1, 0, 1. 0 means [will cross CW, won't cross, will cross CCW]
+            #self.heading_goal -= self.crossing_pi * 2 * pi  # constrain heading_goal to +/- pi
+            self.crossed_pi = False
             self.rot_stopping = False
-
-            self.get_logger().info('start heading: {:.2f}, goal: {:.2f}, crossing2pi: {}'.format(self.heading_start, self.heading_goal, self.crossing_pi))
-            self.run_once = False
             self.rot_speed = self.full_rot_speed
             self.angular_cmd = 0.0
+
+            self.get_logger().info('start heading: {:.2f}, goal: {:.2f}, crossing_pi: {}'.format(self.heading_start, self.heading_goal, self.will_cross_pi))
+            self.run_once = False
 
         if self.rot_stopping:
             if abs(self.odom.twist.twist.angular.z) < 0.01:     # wait till we've stopped
@@ -91,17 +94,17 @@ class RotateOdom(MoveParent):
                 return False
 
         # slow the rotation speed if we're getting close
-        if self.crossing_pi == 0:
-            if ((self.angle >= 0 and self.heading > (self.heading_goal - target_close_angle)) or
-                (self.angle < 0 and self.heading < (self.heading_goal + target_close_angle))):
+        if self.will_cross_pi == 0:
+            if ((self.angle_to_turn >= 0 and self.heading > (self.heading_goal - target_close_angle)) or
+                (self.angle_to_turn < 0 and self.heading < (self.heading_goal + target_close_angle))):
                 self.rot_speed = self.low_rot_speed
 
         # stop if we've gone past the goal
-        if self.crossing_pi == 0 and \
-            ((self.angle >= 0 and self.heading >= self.heading_goal) or \
-            (self.angle < 0 and self.heading < self.heading_goal)):
+        if self.will_cross_pi == 0 and \
+            ((self.angle_to_turn >= 0 and self.heading >= self.heading_goal) or \
+            (self.angle_to_turn < 0 and self.heading < self.heading_goal)):
 
-            self.rot_speed = 0     # exceeded goal, stop immediately
+            self.rot_speed = 0.0     # exceeded goal, stop immediately
             self.send_move_cmd(0.0, self.slew_rot(0.0))
             self.rot_stopping = True        # wait until we've stopped before exiting
 
@@ -109,14 +112,14 @@ class RotateOdom(MoveParent):
             return False
 
         # +ve angle means turn left. Adjust pi-crossing detection to avoid early exit without movement
-        if self.angle >= 0:
+        if self.angle_to_turn >= 0:
             self.angular_cmd = self.slew_rot(self.rot_speed)
-            if ((self.crossing_pi != 0) and (self.heading < (self.heading_start - 0.1))):
-                self.crossing_pi = 0                 # robot crossed 2pi, now let the end-of-rotate logic work
+            if ((self.will_cross_pi != 0) and (self.heading < (self.heading_start - 0.1))):
+                self.will_cross_pi = 0                 # robot crossed pi, now let the end-of-rotate logic work
         else:
             self.angular_cmd = self.slew_rot(-self.rot_speed)
-            if ((self.crossing_pi != 0) and (self.heading > (self.heading_start + 0.1))):
-                self.crossing_pi = 0                 # robot crossed 2pi, now let the end-of-rotate logic work
+            if ((self.will_cross_pi != 0) and (self.heading > (self.heading_start + 0.1))):
+                self.will_cross_pi = 0                 # robot crossed pi, now let the end-of-rotate logic work
 
         # self.get_logger().info(self.heading)
         self.send_move_cmd(0.0, self.angular_cmd)
@@ -127,11 +130,11 @@ class RotateOdom(MoveParent):
         return False
 
     def publish_debug(self):
-        self.debug_msg.angle = self.angle
+        self.debug_msg.angle = self.angle_to_turn
         self.debug_msg.heading = self.heading
         self.debug_msg.heading_start = self.heading_start
         self.debug_msg.heading_goal = self.heading_goal
-        self.debug_msg.crossing_pi = self.crossing_pi
+        self.debug_msg.crossing_pi = self.will_cross_pi
         self.debug_msg.rot_stopping = self.rot_stopping
         self.debug_msg.rot_speed = self.rot_speed
         self.debug_msg.angular_cmd = self.angular_cmd
@@ -139,12 +142,10 @@ class RotateOdom(MoveParent):
         self.debug_msg.commanded_angular = self.commandedAngular
         self.debug_pub.publish(self.debug_msg)
 
-    def normalize(self, angle):     # normalize angle to +/- pi
-        if angle > pi:
-            angle -= 2 * pi
-        if angle < -pi:
-            angle += 2 * pi
-        return angle
+    def fixup_heading(self, heading, angle_to_turn):     # normalize heading to 0 - 2pi from East for CCW turns, 0 - -2pi for CW turns
+        if angle_to_turn >= 0:
+            return heading
+        return heading - (2 * pi)
 
     def start_action_server(self):
         self.create_action_server('rotate_odom')
@@ -155,7 +156,7 @@ class RotateOdom(MoveParent):
         return text_feedback, progress_feedback
 
     def finish_cb(self):
-        results = [self.angle]
+        results = [self.angle_to_turn]
         return results
 
 def main():
