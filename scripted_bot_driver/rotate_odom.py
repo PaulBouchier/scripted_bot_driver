@@ -84,8 +84,7 @@ class RotateOdom(MoveParent):
             self.odom.pose.pose.orientation.w,
         ]
         euler_angles = tf_transformations.euler_from_quaternion(q)
-        self.euler_heading = euler_angles[2]  # should be 0 - 2pi increasing CCW from East at 0
-        self.heading = self.fixup_heading_heading(euler_angles[2], self.angle_to_turn)  # normalize heading to [0, 2pi)
+        self.heading = self.normalize_heading(euler_angles[2])  # normalize heading to [0, 2pi)
 
         if self.run_once:
             self.heading_start = self.heading
@@ -128,7 +127,7 @@ class RotateOdom(MoveParent):
         # stop if we've gone past the goal
         if ((self.angle_goal >= 0 and self.angle_error <= 0) or
             (self.angle_goal < 0 and self.angle_error >= 0)):
-            self.rot_speed = 0  # exceeded goal, stop immediately
+            self.rot_speed = 0.0  # exceeded goal, stop immediately
             self.send_move_cmd(0.0, self.slew_rot(0.0))
             self.rot_stopping = True  # wait until we've stopped before exiting
 
