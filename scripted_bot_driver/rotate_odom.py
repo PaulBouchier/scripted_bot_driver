@@ -88,13 +88,13 @@ class RotateOdom(MoveParent):
     
     
     def parse_angle_rad(self, angle_str):
-        """ convert an angle string to a float value in radians. angles ending in 'd' will be converted from degrees"""
+        """ convert an angle string to a float value in radians. angles ending in 'p' will be multipied by pi and those ending in 'd' will be converted from degrees"""
         angle_rad = 0 # default return value if an angle isn't provided
         if angle_str:
             if angle_str[-1] in ['d', 'D']: 
                 angle_rad = radians(float(angle_str[:-1]))
             elif angle_str[-1] in ['p', 'P']: 
-                angle_rad = float (angle_str) * pi
+                angle_rad = (float (angle_str[:-1])) * pi
             else:
                 angle_rad = float (angle_str)
 

@@ -41,11 +41,12 @@ and a command to run the Four Corners DPRG contest could be:
 ros2 run scripted_bot_driver scripted_mover drive_waypoints 3 0 3 3 0 3 0 0
 ```
 Distance parameters are in meters and delay is in seconds.
-```
+
 
 roto and movo could also be combined to run Four Corners:
+```
 ros2 run scripted_bot_driver scripted_mover movo 3 roto 90d movo 3 roto 90d movo 3 roto 90d movo 3 roto 90d
-
+```
 roto is used to turn in relation to the current heading: 
 *Unmodified target angles can be specified as just a number in radians with positive values requesting a CCW direction. If a 'd' or 'p' is appended, the angle will be interpreted as degrees, or to be multiplied by pi, respectively.
 *so -3.14159 and -1p and -180d are all treated as a half rotation in the clockwise direction in strict mode.
