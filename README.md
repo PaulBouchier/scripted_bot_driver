@@ -48,13 +48,13 @@ roto and movo could also be combined to run Four Corners:
 ros2 run scripted_bot_driver scripted_mover movo 3 roto 90d movo 3 roto 90d movo 3 roto 90d movo 3 roto 90d
 ```
 roto is used to turn in relation to the current heading: 
-*Unmodified target angles can be specified as just a number in radians with positive values requesting a CCW direction. If a 'd' or 'p' is appended, the angle will be interpreted as degrees, or to be multiplied by pi, respectively.
-*so -3.14159 and -1p and -180d are all treated as a half rotation in the clockwise direction in strict mode.
-*mode is either 1 or 2 if specified. Mode 1 is the default and seeks the shortest path. So if not specified, a roto 181d would actually result in a -179 degree rotation. The specified target angle will be normalized, so you'll never see more than a half rotation. Mode 2 is strict, meaning it requests a relative rotation from the starting heading exactly as specified. A "roto -4p 2" will execute 2 full rotations clockwise.
-*the remaining optional arguments require all preceding arguments to be supplied.
-*angular_speed, will override the default turning speed with the supplied speed in radians.
-*drive_speed, will add a forward or backward velocity, resulting in arcs. The value is in meters per second. Vary turning speed and drive speed for varying arcs. The terminating condition is always the final target rotation angle.
-*Accuracy is currently quite low and will always over-rotate. Reduce the angular_velocity to achieve better results. 
+- Unmodified target angles can be specified as just a number in radians with positive values requesting a CCW direction. If a 'd' or 'p' is appended, the angle will be interpreted as degrees, or to be multiplied by pi, respectively.
+- so -3.14159 and -1p and -180d are all treated as a half rotation in the clockwise direction in strict mode.
+- mode is either 1 or 2 if specified. Mode 1 is the default and seeks the shortest path. So if not specified, a roto 181d would actually result in a -179 degree rotation. The specified target angle will be normalized, so you'll never see more than a half rotation. Mode 2 is strict, meaning it requests a relative rotation from the starting heading exactly as specified. A "roto -4p 2" will execute 2 full rotations clockwise.
+- the remaining optional arguments require all preceding arguments to be supplied.
+- angular_speed, will override the default turning speed with the supplied speed in radians.
+- drive_speed, will add a forward or backward velocity, resulting in arcs. The value is in meters per second. Vary turning speed and drive speed for varying arcs. The terminating condition is always the final target rotation angle.
+- Accuracy is currently quite low and will always over-rotate. Reduce the angular_velocity to achieve better results. 
 
 A compatible simulation can be launched from the generic_turtlesim package, which
 is built around the ros2 turtlesim simulatork. It just reformats the simulator pose output
