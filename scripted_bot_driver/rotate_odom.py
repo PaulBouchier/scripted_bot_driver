@@ -37,35 +37,55 @@ class RotateOdom(MoveParent):
         #self.timer = self.create_timer(1.0 / 30.0, self.run)
 
     def parse_argv(self, argv):
+        pargs = 0;  #parsed args count
         
-        if len(argv) not in [1, 2, 3]:
+        if len(argv) not in [1, 2, 3, 4]:
             self.get_logger().fatal('Incorrect number of args given to RotateOdom: {}'.format(len(argv)))
             return -1
         self.shortest_path = True
         try:
-            sp = argv[1]
-            if sp == '-1':
-                self.shortest_path = False
-                
             self.angle_goal = self.parse_angle_rad(argv[0])  # pick off first arg from supplied list
+            pargs+=1
             self.get_logger().info(f'argv[0] {argv[0]}')
+
+            if  len(argv)>1:
+                sp = argv[1]
+                if sp == '2':
+                    self.shortest_path = False
+                    pargs+=1
+                    self.get_logger().info(f'argv[1] {argv[1]}')    
+
         except ValueError:
             self.get_logger().fatal('Rotation angle {} must be convertible to a float'.format(argv[0]))
             return -1
 
         # check whether a rot_speed argument was supplied. if ending in 'd' convert from degrees
-        if len(argv) > 1:
+        if len(argv) > 2:
             try:
                 rot_speed_arg = self.parse_angle_rad(argv[2])
                 self.get_logger().info(f'argv[2] {argv[2]}')
                 self.full_rot_speed = rot_speed_arg
                 self.get_logger().info(f'full_rot_speed {self.full_rot_speed}')
-                self.get_logger().info('Using supplied rot_speed {} radians'.format(self.rot_speed))
-                return 2
+                self.get_logger().info('Using supplied rot_speed {} radians'.format(self.full_rot_speed))
+                pargs+=1
             except ValueError:
-                return 1
+                self.get_logger().info('Ignoring rotation speed {} must be convertible to a float'.format(argv[2]))
+
+        # check whether a drive_speed argument was supplied. meters per second
+        self.full_drive_speed =  0.0
+        if len(argv) > 3:
+            try:
+                drive_speed_arg = self.parse_angle_rad(argv[3])
+                self.get_logger().info(f'argv[3] {argv[3]}')
+                self.full_drive_speed = drive_speed_arg
+                self.get_logger().info(f'full_drive_speed {self.full_drive_speed}')
+                self.get_logger().info('Using supplied drive_speed {}m/sec'.format(self.full_drive_speed))
+                pargs+=1
+            except ValueError:
+                self.get_logger().info('Ignoring drive speed {} must be convertible to a float'.format(argv[3]))
         
-        return 1  # return number of args consumed
+        return pargs  # return number of args parsed
+    
     
     def parse_angle_rad(self, angle_str):
         """ convert an angle string to a float value in radians. angles ending in 'd' will be converted from degrees"""
@@ -73,7 +93,9 @@ class RotateOdom(MoveParent):
         if angle_str:
             if angle_str[-1] in ['d', 'D']: 
                 angle_rad = radians(float(angle_str[:-1]))
-            else: 
+            elif angle_str[-1] in ['p', 'P']: 
+                angle_rad = float (angle_str) * pi
+            else:
                 angle_rad = float (angle_str)
 
         return angle_rad
@@ -90,8 +112,6 @@ class RotateOdom(MoveParent):
         if time_diff > 0:
             instant_loop_rate = 1.0 / time_diff
             self.estimated_loop_rate = self.alpha * instant_loop_rate + (1.0 - self.alpha) * self.estimated_loop_rate
-
-        rot_slew_rate = 0.5 / self.estimated_loop_rate  # Adjusted slew rate based on estimated loop rate
 
         if not self.is_odom_started():
             self.get_logger().error('ERROR: robot odometry has not started - exiting')
@@ -121,6 +141,7 @@ class RotateOdom(MoveParent):
             self.rot_speed = self.full_rot_speed
             self.get_logger().info(f'self.rot_speed runonce {self.rot_speed}')
             self.angular_cmd = 0.0
+            self.linear_cmd  = 0.0
 
         #  update our turn error
         self.angle_error=self.ah.update(self.heading).radians
@@ -142,7 +163,7 @@ class RotateOdom(MoveParent):
         if ((self.angle_goal >= 0 and self.angle_error <= 0) or
             (self.angle_goal < 0 and self.angle_error >= 0)):
             self.rot_speed = 0.0  # exceeded goal, stop immediately
-            self.send_move_cmd(0.0, self.slew_rot(0.0))
+            self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
             self.rot_stopping = True  # wait until we've stopped before exiting
 
             self.publish_debug()
@@ -150,8 +171,9 @@ class RotateOdom(MoveParent):
 
         # Adjust rotation direction based on the angle error
         self.angular_cmd = self.slew_rot(copysign(self.rot_speed, self.angle_error))
+        self.linear_cmd =  self.slew_vel(self.full_drive_speed)
 
-        self.send_move_cmd(0.0, self.angular_cmd)
+        self.send_move_cmd(self.linear_cmd, self.angular_cmd)
 
         # publish debug data
         self.publish_debug()
@@ -171,10 +193,14 @@ class RotateOdom(MoveParent):
         self.debug_msg.commanded_angular = self.commandedAngular
         self.debug_pub.publish(self.debug_msg)
 
+    def slew_vel(self, to):
+        vel_slew_rate = 0.5 / self.estimated_loop_rate  # Dynamic slew rate
+        return self.slew(self.commandedLinear, to, vel_slew_rate)
+    
     def slew_rot(self, to):
         rot_slew_rate = 0.5 / self.estimated_loop_rate  # Dynamic slew rate
         return self.slew(self.commandedAngular, to, rot_slew_rate)
-
+    
     def slew(self, current, to, slew_rate):
         diff = to - current
         if diff > slew_rate:

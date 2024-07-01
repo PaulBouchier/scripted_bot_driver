@@ -147,7 +147,7 @@ def usage():
     print('Supported move commands are:')
     print('movo <distance> [speed] - drive straight for <distance> meters')
     #print('arc <angle> <radius> <f | b>')
-    print('roto <angle>[d] <mode> [speed][d] - rotate <angle>[d] radians unless [d] which means degrees, +ve is CCW., mode=1 is shortest path, mode 2 is full angle. Angular speed, if given, is in radians unless mark [d]egrees.')
+    print('roto <target_angle>[d|p] <mode> [angular_speed][d]  [drive_speed] - rotate <angle> radians, or pi*<target_angle> if [p] or degrees if [d], +angle is CCW., mode 1  (default) is shortest_path, mode 2 is strict. Angular speed, if given, allows same modifiers as target_angle.  Drive speed if given is in meters per second, defaults to zero.')
     print('drive_waypoints <target_x> <target_y> [ more_targets ] - drive to a list of targets')
     print('stop [delay]- ramp linear and rotational speed down to 0 with optional pause at end')
     sys.exit()
