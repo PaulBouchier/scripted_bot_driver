@@ -8,6 +8,7 @@ import time
 import threading
 
 import rclpy
+import math
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 
@@ -20,8 +21,8 @@ loop_rate = 10       # loop rate
 speed_default = 0.35    # driving speed, fwd or back
 low_speed_default = 0.15
 vel_slew_rate = 0.5 / loop_rate  # m/s^2 per loop
-rot_speed_default = 0.25    # rotating speed, rad/s
-low_rot_speed_default = 0.25
+rot_speed_default = math.pi/4    # rotating speed, rad/s
+low_rot_speed_default = rot_speed_default/3
 rot_slew_rate = 0.5 / loop_rate  # rad/s^2
 
 class MoveParent(Node):
