@@ -31,6 +31,8 @@ setup(
             'rotate_odom = scripted_bot_driver.rotate_odom:main',
             'move_parent = scripted_bot_driver.move_parent:main',
             'scripted_mover = scripted_bot_driver.scripted_mover:main',
+            'angle_hunter = scripted_bot_driver.AngleHunter:main',
+            'anglr = scripted_bot_driver.anglr:main',
         ],
     },
 )

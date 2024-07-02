@@ -1,61 +1,118 @@
 #!/usr/bin/env python
 
+import string
 import sys
 import time
-from math import radians, copysign, sqrt, pow, pi, asin, atan2
+from math import radians, degrees, copysign, sqrt, pow, pi, fmod
 
 import rclpy
 import tf_transformations
 
 from scripted_bot_driver.move_parent import MoveParent
+from scripted_bot_driver.anglr import  Angle
+from scripted_bot_driver.AngleHunter import AngleHunter
 from scripted_bot_interfaces.msg import RotateOdomDebug
 
 
-target_close_angle = 0.3    # slow down when this close
-angle_correction_sim = 0.970
+target_close_angle = 0.3    # slow down when this close in radians
+angle_correction_sim = 1.0  # can use this to hack the cutoff to mitigate over rotation? was 0.970
 
 class RotateOdom(MoveParent):
     def __init__(self):
         super().__init__('rotate')
+        #  set up loop timer
+        self.last_time = self.get_clock().now()
+        self.estimated_loop_rate = 0.0
+        self.alpha = 0.1  # Smoothing factor for exponential moving average
+        self.commandedAngular = 0.0
+        self.rot_stopping = False
         self.run_once = True
 
         # Publisher for debug data
         self.debug_msg = RotateOdomDebug()
         self.debug_pub = self.create_publisher(RotateOdomDebug, 'rotate_odom_debug', 10)
+        self.angle_error = 0.0
+
+        # Initialize timer to call run method at 30 Hz - no worky
+        #self.timer = self.create_timer(1.0 / 30.0, self.run)
 
     def parse_argv(self, argv):
-        if (len(argv) != 1 and len(argv) != 2):
-            self.get_logger().fatal('Incorrrect number of args given to RotateOdom: {}'.format(len(argv)))
+        pargs = 0;  #parsed args count
+        
+        if len(argv) not in [1, 2, 3, 4]:
+            self.get_logger().fatal('Incorrect number of args given to RotateOdom: {}'.format(len(argv)))
             return -1
-
+        self.shortest_path = True
         try:
-            angle_deg = float(argv[0])  # pick off first arg from supplied list - angle to turn in deg - +ve = CCW
+            self.angle_goal = self.parse_angle_rad(argv[0])  # pick off first arg from supplied list
+            pargs+=1
+            self.get_logger().info(f'argv[0] {argv[0]}')
+
+            if  len(argv)>1:
+                sp = argv[1]
+                if sp == '2':
+                    self.shortest_path = False
+                    pargs+=1
+                    self.get_logger().info(f'argv[1] {argv[1]}')    
+
         except ValueError:
-            self.get_logger().fatal('Rotation angle {} must be a float'.format(argv[0]))
+            self.get_logger().fatal('Rotation angle {} must be convertible to a float'.format(argv[0]))
             return -1
 
-        if angle_deg > 180.0 or angle_deg < -180.0:
-            self.get_logger().fatal('Rotation angle ({} deg) must be between -180 and +180'.format(argv[0]))
-            return -1
-
-        self.angle_to_turn = angle_deg * (pi / 180) * angle_correction_sim  # angle to rotate through, -pi to +pi
-
-        # check whether a rot_speed argument was supplied
-        if len(argv) > 1:
+        # check whether a rot_speed argument was supplied. if ending in 'd' convert from degrees
+        if len(argv) > 2:
             try:
-                rot_speed_arg = float(argv[1])
-                self.rot_speed = rot_speed_arg
-                self.get_logger().info('Using supplied rot_speed {}'.format(self.rot_speed))
-                return 2
+                rot_speed_arg = self.parse_angle_rad(argv[2])
+                self.get_logger().info(f'argv[2] {argv[2]}')
+                self.full_rot_speed = rot_speed_arg
+                self.get_logger().info(f'full_rot_speed {self.full_rot_speed}')
+                self.get_logger().info('Using supplied rot_speed {} radians'.format(self.full_rot_speed))
+                pargs+=1
             except ValueError:
-                return 1
-        return 1            # return number of args consumed
+                self.get_logger().info('Ignoring rotation speed {} must be convertible to a float'.format(argv[2]))
+
+        # check whether a drive_speed argument was supplied. meters per second
+        self.full_drive_speed =  0.0
+        if len(argv) > 3:
+            try:
+                drive_speed_arg = self.parse_angle_rad(argv[3])
+                self.get_logger().info(f'argv[3] {argv[3]}')
+                self.full_drive_speed = drive_speed_arg
+                self.get_logger().info(f'full_drive_speed {self.full_drive_speed}')
+                self.get_logger().info('Using supplied drive_speed {}m/sec'.format(self.full_drive_speed))
+                pargs+=1
+            except ValueError:
+                self.get_logger().info('Ignoring drive speed {} must be convertible to a float'.format(argv[3]))
+        
+        return pargs  # return number of args parsed
+    
+    
+    def parse_angle_rad(self, angle_str):
+        """ convert an angle string to a float value in radians. angles ending in 'p' will be multipied by pi and those ending in 'd' will be converted from degrees"""
+        angle_rad = 0 # default return value if an angle isn't provided
+        if angle_str:
+            if angle_str[-1] in ['d', 'D']: 
+                angle_rad = radians(float(angle_str[:-1]))
+            elif angle_str[-1] in ['p', 'P']: 
+                angle_rad = (float (angle_str[:-1])) * pi
+            else:
+                angle_rad = float (angle_str)
+
+        return angle_rad
 
     def print(self):
-        self.get_logger().info('rotate {} deg'.format(self.angle_to_turn * 180 / pi))
+        self.get_logger().info(f'rotate {self.angle_goal} rad, {degrees(self.angle_goal)} deg')
 
-    # run is called at the rate until it returns true
+    # run is called regularly until it returns true
     def run(self):
+        current_time = self.get_clock().now()
+        time_diff = (current_time - self.last_time).nanoseconds / 1e9  # Convert nanoseconds to seconds
+        self.last_time = current_time
+
+        if time_diff > 0:
+            instant_loop_rate = 1.0 / time_diff
+            self.estimated_loop_rate = self.alpha * instant_loop_rate + (1.0 - self.alpha) * self.estimated_loop_rate
+
         if not self.is_odom_started():
             self.get_logger().error('ERROR: robot odometry has not started - exiting')
             return True
@@ -68,61 +125,55 @@ class RotateOdom(MoveParent):
             self.odom.pose.pose.orientation.w,
         ]
         euler_angles = tf_transformations.euler_from_quaternion(q)
-        self.euler_heading = euler_angles[2]  # should be 0 - 2pi increasing CCW from East at 0
-        self.heading = self.fixup_heading(euler_angles[2], self.angle_to_turn)  # range: -pi to +pi
-
+        self.heading = Angle(euler_angles[2]).normalized().radians  # normalize heading to [0, 2pi), though it should be already
+        
         if self.run_once:
             self.heading_start = self.heading
-            self.heading_goal = self.heading + self.angle_to_turn  # goal can range 0 - 2pi for CCW and 0 - -2pi for CW turns
-            self.will_cross_pi = int(self.heading_goal / pi)  # values -1, 0, 1. 0 means [will cross CW, won't cross, will cross CCW]
-            #self.heading_goal -= self.crossing_pi * 2 * pi  # constrain heading_goal to +/- pi
-            self.crossed_pi = False
+            self.get_logger().info(f'self.heading_start {self.heading_start}')
+            #initialize an AngleHunter to track heading error
+            self.ah=AngleHunter(self.angle_goal*angle_correction_sim, self.heading_start, self.shortest_path)
+            self.angle_goal = self.ah.get_target_radians() 
+            self.heading_goal = self.ah.get_target_radians()
             self.rot_stopping = False
-            self.rot_speed = self.full_rot_speed
-            self.angular_cmd = 0.0
-
-            self.get_logger().info('start heading: {:.2f}, goal: {:.2f}, crossing_pi: {}'.format(self.heading_start, self.heading_goal, self.will_cross_pi))
+            
+            self.get_logger().info(f'start goal: {self.heading_goal:.2f}')
             self.run_once = False
+            self.rot_speed = self.full_rot_speed
+            self.get_logger().info(f'self.rot_speed runonce {self.rot_speed}')
+            self.angular_cmd = 0.0
+            self.linear_cmd  = 0.0
 
+        #  update our turn error
+        self.angle_error=self.ah.update(self.heading).radians
+        
         if self.rot_stopping:
-            if abs(self.odom.twist.twist.angular.z) < 0.01:     # wait till we've stopped
+            if abs(self.odom.twist.twist.angular.z) < 0.01:  # wait till we've stopped
                 self.run_once = True
-                self.get_logger().info('rotated: {} deg to heading {:.2f}'.format((self.heading - self.heading_start) * (180 / pi), self.heading))
+                self.get_logger().info(f'rotated: {self.ah.get_cumul_degrees()} deg to heading {self.heading}')
                 return True
             else:
                 self.publish_debug()
                 return False
 
         # slow the rotation speed if we're getting close
-        if self.will_cross_pi == 0:
-            if ((self.angle_to_turn >= 0 and self.heading > (self.heading_goal - target_close_angle)) or
-                (self.angle_to_turn < 0 and self.heading < (self.heading_goal + target_close_angle))):
-                self.rot_speed = self.low_rot_speed
+        if abs(self.angle_error) < target_close_angle:
+            self.rot_speed = self.low_rot_speed
 
         # stop if we've gone past the goal
-        if self.will_cross_pi == 0 and \
-            ((self.angle_to_turn >= 0 and self.heading >= self.heading_goal) or \
-            (self.angle_to_turn < 0 and self.heading < self.heading_goal)):
-
-            self.rot_speed = 0.0     # exceeded goal, stop immediately
-            self.send_move_cmd(0.0, self.slew_rot(0.0))
-            self.rot_stopping = True        # wait until we've stopped before exiting
+        if ((self.angle_goal >= 0 and self.angle_error <= 0) or
+            (self.angle_goal < 0 and self.angle_error >= 0)):
+            self.rot_speed = 0.0  # exceeded goal, stop immediately
+            self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
+            self.rot_stopping = True  # wait until we've stopped before exiting
 
             self.publish_debug()
             return False
 
-        # +ve angle means turn left. Adjust pi-crossing detection to avoid early exit without movement
-        if self.angle_to_turn >= 0:
-            self.angular_cmd = self.slew_rot(self.rot_speed)
-            if ((self.will_cross_pi != 0) and (self.heading < (self.heading_start - 0.1))):
-                self.will_cross_pi = 0                 # robot crossed pi, now let the end-of-rotate logic work
-        else:
-            self.angular_cmd = self.slew_rot(-self.rot_speed)
-            if ((self.will_cross_pi != 0) and (self.heading > (self.heading_start + 0.1))):
-                self.will_cross_pi = 0                 # robot crossed pi, now let the end-of-rotate logic work
+        # Adjust rotation direction based on the angle error
+        self.angular_cmd = self.slew_rot(copysign(self.rot_speed, self.angle_error))
+        self.linear_cmd =  self.slew_vel(self.full_drive_speed)
 
-        # self.get_logger().info(self.heading)
-        self.send_move_cmd(0.0, self.angular_cmd)
+        self.send_move_cmd(self.linear_cmd, self.angular_cmd)
 
         # publish debug data
         self.publish_debug()
@@ -130,11 +181,11 @@ class RotateOdom(MoveParent):
         return False
 
     def publish_debug(self):
-        self.debug_msg.angle = self.angle_to_turn
+        self.debug_msg.angle_goal = self.angle_goal #todo seems redundant with heading_goal?
         self.debug_msg.heading = self.heading
         self.debug_msg.heading_start = self.heading_start
         self.debug_msg.heading_goal = self.heading_goal
-        self.debug_msg.crossing_pi = self.will_cross_pi
+        self.debug_msg.angle_error = self.angle_error
         self.debug_msg.rot_stopping = self.rot_stopping
         self.debug_msg.rot_speed = self.rot_speed
         self.debug_msg.angular_cmd = self.angular_cmd
@@ -142,21 +193,34 @@ class RotateOdom(MoveParent):
         self.debug_msg.commanded_angular = self.commandedAngular
         self.debug_pub.publish(self.debug_msg)
 
-    def fixup_heading(self, heading, angle_to_turn):     # normalize heading to 0 - 2pi from East for CCW turns, 0 - -2pi for CW turns
-        if angle_to_turn >= 0:
-            return heading
-        return heading - (2 * pi)
+    def slew_vel(self, to):
+        vel_slew_rate = 0.5 / self.estimated_loop_rate  # Dynamic slew rate
+        return self.slew(self.commandedLinear, to, vel_slew_rate)
+    
+    def slew_rot(self, to):
+        rot_slew_rate = 0.5 / self.estimated_loop_rate  # Dynamic slew rate
+        return self.slew(self.commandedAngular, to, rot_slew_rate)
+    
+    def slew(self, current, to, slew_rate):
+        diff = to - current
+        if diff > slew_rate:
+            return current + slew_rate
+        if diff < -slew_rate:
+            return current - slew_rate
+        return to
 
     def start_action_server(self):
         self.create_action_server('rotate_odom')
 
     def get_feedback(self):
-        text_feedback = 'TODO: add feedback'
-        progress_feedback = 0.0
+        text_feedback = 'Degrees remaining:' 
+        text_feedback = f'{repr(self.ah)}\nloop rate: {self.estimated_loop_rate:.2f} Hz'
+        progress_feedback = degrees(self.angle_error)  # Set progress_feedback to angle_error
+        
         return text_feedback, progress_feedback
 
     def finish_cb(self):
-        results = [self.angle_to_turn]
+        results = [self.angle_goal]
         return results
 
 def main():
@@ -169,4 +233,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
