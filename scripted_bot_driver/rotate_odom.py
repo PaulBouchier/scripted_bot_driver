@@ -14,8 +14,7 @@ from scripted_bot_driver.AngleHunter import AngleHunter
 from scripted_bot_interfaces.msg import RotateOdomDebug
 
 
-target_close_angle = 0.3    # slow down when this close in radians
-angle_correction_sim = 1.0  # can use this to hack the cutoff to mitigate over rotation? was 0.970
+target_close_angle = 0.5    # slow down when this close in radians
 
 class RotateOdom(MoveParent):
     def __init__(self):
@@ -38,6 +37,7 @@ class RotateOdom(MoveParent):
 
     def parse_argv(self, argv):
         pargs = 0;  #parsed args count
+        self.set_defaults()  # set default speeds which may then be modified by args
         
         if len(argv) not in [1, 2, 3, 4]:
             self.get_logger().fatal('Incorrect number of args given to RotateOdom: {}'.format(len(argv)))
@@ -131,12 +131,11 @@ class RotateOdom(MoveParent):
             self.heading_start = self.heading
             self.get_logger().info(f'self.heading_start {self.heading_start}')
             #initialize an AngleHunter to track heading error
-            self.ah=AngleHunter(self.angle_goal*angle_correction_sim, self.heading_start, self.shortest_path)
+            self.ah=AngleHunter(self.angle_goal, self.heading_start, self.shortest_path)
             self.angle_goal = self.ah.get_target_radians() 
-            self.heading_goal = self.ah.get_target_radians()
             self.rot_stopping = False
             
-            self.get_logger().info(f'start goal: {self.heading_goal:.2f}')
+            self.get_logger().info(f'start goal: {self.angle_goal:.2f}')
             self.run_once = False
             self.rot_speed = self.full_rot_speed
             self.get_logger().info(f'self.rot_speed runonce {self.rot_speed}')
@@ -152,18 +151,20 @@ class RotateOdom(MoveParent):
                 self.get_logger().info(f'rotated: {self.ah.get_cumul_degrees()} deg to heading {self.heading}')
                 return True
             else:
+                self.send_move_cmd(0.0, 0.0)  # stop immediately
                 self.publish_debug()
                 return False
 
-        # slow the rotation speed if we're getting close
+        # slow the linear & rotation speed if we're getting close
         if abs(self.angle_error) < target_close_angle:
             self.rot_speed = self.low_rot_speed
+            self.speed = self.low_speed
 
         # stop if we've gone past the goal
         if ((self.angle_goal >= 0 and self.angle_error <= 0) or
             (self.angle_goal < 0 and self.angle_error >= 0)):
             self.rot_speed = 0.0  # exceeded goal, stop immediately
-            self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
+            self.send_move_cmd(0.0, 0.0)
             self.rot_stopping = True  # wait until we've stopped before exiting
 
             self.publish_debug()
@@ -181,10 +182,9 @@ class RotateOdom(MoveParent):
         return False
 
     def publish_debug(self):
-        self.debug_msg.angle_goal = self.angle_goal #todo seems redundant with heading_goal?
+        self.debug_msg.angle_goal = self.angle_goal
         self.debug_msg.heading = self.heading
         self.debug_msg.heading_start = self.heading_start
-        self.debug_msg.heading_goal = self.heading_goal
         self.debug_msg.angle_error = self.angle_error
         self.debug_msg.rot_stopping = self.rot_stopping
         self.debug_msg.rot_speed = self.rot_speed
@@ -214,7 +214,7 @@ class RotateOdom(MoveParent):
 
     def get_feedback(self):
         text_feedback = 'Degrees remaining:' 
-        text_feedback = f'{repr(self.ah)}\nloop rate: {self.estimated_loop_rate:.2f} Hz'
+        self.get_logger().debug(f'{repr(self.ah)}\nloop rate: {self.estimated_loop_rate:.2f} Hz')
         progress_feedback = degrees(self.angle_error)  # Set progress_feedback to angle_error
         
         return text_feedback, progress_feedback

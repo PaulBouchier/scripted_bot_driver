@@ -86,9 +86,9 @@ class DriveStraightOdom(MoveParent):
         self.create_action_server('drive_straight_odom')
 
     def get_feedback(self):
-        text_feedback = 'Driving straight at {}, speed: '.format(
-            self.commandedLinear)
         progress_feedback = self.delta_odom
+        text_feedback = 'Driving straight at {}, progress (m): '.format(
+            self.commandedLinear, progress_feedback)
         return text_feedback, progress_feedback
 
     def finish_cb(self):
