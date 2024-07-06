@@ -29,16 +29,16 @@ Usage: scripted_mover.py [commands] - executes the series of move commands provi
 ```
 
 ## Move commands
-Supported move commands are described below.
-### movo
+The move commands supported by scripted_bot_driver and its action servers are described below.
 
+### movo
 ```
 movo <distance> [speed]
 ```
 - drive straight for *distance* meters at the parameterized or given speed
-```
-### roto
 
+### roto
+```
 roto <target_angle>[d|p] <mode> [angular_speed][d|p] [drive_speed].
 ```
 roto is used to turn in relation to the current heading: 
@@ -49,23 +49,20 @@ roto is used to turn in relation to the current heading:
 - angular_speed, will override the default turning speed with the supplied speed in radians.
 - drive_speed, will add a forward or backward velocity, resulting in arcs. The value is in meters per second. Vary turning speed and drive speed for varying arcs. The terminating condition is always the final target rotation angle.
 
-The driving arc feature can be used to cause ackerman-steered vehicles to execute 3-point turns with a script like this:
-```
-ros2 run scripted_bot_driver scripted_mover movo 3 roto 90d 1 0.6 0.3 movo 0.5 roto 90d 1 0.6 -0.3 stop 1 movo 3 roto -90d 1 0.6 0.3 movo 0.5 roto -90d 1 0.6 -0.3 movo 3
-```
-This can be useful for robots which cannot turn in place.
-
 ### drive_waypoints
+Drive to a list of waypoints. 
 ```
 drive_waypoints <target_x> <target_y> [ more_targets ] 
 ```
-- drive to a list of targets. *target_x* and *target_y* are in meters in the odom frame.
+- *target_x* and *target_y* are in meters in the odom frame.
 
 ### stop
 ```
 stop [delay]
 ```
 - ramp linear and rotational speed down to 0 with optional pause of *delay* seconds at end
+
+## Examples
 
 An example of a command to run the Quick Trip DPRG contest could be:
 ```
@@ -82,6 +79,11 @@ roto and movo could also be combined to run Four Corners:
 ```
 ros2 run scripted_bot_driver scripted_mover movo 3 roto 90d movo 3 roto 90d movo 3 roto 90d movo 3 roto 90d
 ```
+The driving arc feature can be used to cause ackerman-steered vehicles to execute 3-point turns with a script like this:
+```
+ros2 run scripted_bot_driver scripted_mover movo 3 roto 90d 1 0.6 0.3 movo 0.5 roto 90d 1 0.6 -0.3 stop 1 movo 3 roto -90d 1 0.6 0.3 movo 0.5 roto -90d 1 0.6 -0.3 movo 3
+```
+This can be useful for robots which cannot turn in place.
 
 ## Simulation
 A compatible simulation can be launched from the generic_turtlesim package, which
