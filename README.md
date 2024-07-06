@@ -29,12 +29,16 @@ Usage: scripted_mover.py [commands] - executes the series of move commands provi
 ```
 
 ## Move commands
-Supported move commands are:
+Supported move commands are described below.
+### movo
+
 ```
 movo <distance> [speed]
 ```
 - drive straight for *distance* meters at the parameterized or given speed
 ```
+### roto
+
 roto <target_angle>[d|p] <mode> [angular_speed][d|p] [drive_speed].
 ```
 roto is used to turn in relation to the current heading: 
@@ -50,10 +54,14 @@ The driving arc feature can be used to cause ackerman-steered vehicles to execut
 ros2 run scripted_bot_driver scripted_mover movo 3 roto 90d 1 0.6 0.3 movo 0.5 roto 90d 1 0.6 -0.3 stop 1 movo 3 roto -90d 1 0.6 0.3 movo 0.5 roto -90d 1 0.6 -0.3 movo 3
 ```
 This can be useful for robots which cannot turn in place.
+
+### drive_waypoints
 ```
 drive_waypoints <target_x> <target_y> [ more_targets ] 
 ```
 - drive to a list of targets. *target_x* and *target_y* are in meters in the odom frame.
+
+### stop
 ```
 stop [delay]
 ```
