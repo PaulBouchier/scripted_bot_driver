@@ -36,6 +36,7 @@ class DriveWaypoints(MoveParent):
         self.run_once = True
         num_points = 0
         self.target_list = []
+        self.set_defaults()
 
         if (len(argv) < 2):
             self.get_logger().fatal('Incorrrect number of args given to DriveWaypoints: {}'.format(len(argv)))

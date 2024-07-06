@@ -22,6 +22,7 @@ class DriveStraightOdom(MoveParent):
         self.get_logger().info('parsing move_spec {}'.format(argv))
         self.run_once = True
         self.delta_odom = 0.0
+        self.set_defaults()
 
         if (len(argv) != 1 and len(argv) != 2):
             self.get_logger().fatal('Incorrrect number of args given to DriveStraightOdom: {}'.format(len(argv)))
@@ -67,6 +68,7 @@ class DriveStraightOdom(MoveParent):
         # self.get_logger().info('delta_x: {} delta_y: {} delta_odom: {}'.format(delta_x, delta_y, self.delta_odom))
 
         if (self.delta_odom > self.distance):
+            self.send_move_cmd(0.0, 0.0)  # traveled required distance, slam on the brakes
             self.get_logger().info('traveled: {} m'.format(self.delta_odom))
             return True
 

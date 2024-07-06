@@ -15,21 +15,40 @@ from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from scripted_bot_interfaces.action import Move
+from rcl_interfaces.msg import ParameterDescriptor
 
 
 loop_rate = 10       # loop rate
+
+# default speed values, which are parameter defaults that can be overriden by parameter cmds
 speed_default = 0.35    # driving speed, fwd or back
 low_speed_default = 0.15
-vel_slew_rate = 0.5 / loop_rate  # m/s^2 per loop
+vel_slew_rate_default = 0.5 / loop_rate  # m/s^2 per loop
 rot_speed_default = math.pi/5    # rotating speed, rad/s - 10 sec per revolution
 low_rot_speed_default = rot_speed_default/3
-rot_slew_rate = (rot_speed_default * 3) / loop_rate  # rad/s^2 per loop - slew in 1/3 sec
+rot_slew_rate_default = (rot_speed_default * 3) / loop_rate  # rad/s^2 per loop - slew in 1/3 sec
 
 class MoveParent(Node):
 
     def __init__(self, node_name):
         super().__init__(node_name)
         self.node_name = node_name
+
+        # initialize parameters
+        self.declare_parameter('speed_default_param', speed_default,
+                               ParameterDescriptor(description='Default linear full speed, m/s'))
+        self.declare_parameter('low_speed_default_param', low_speed_default,
+                               ParameterDescriptor(description='Default linear low speed, m/s'))
+        self.declare_parameter('vel_slew_rate_default_param', vel_slew_rate_default,
+                               ParameterDescriptor(description='Default linear slew rate, m/s^2 per tick'))
+        self.declare_parameter('rot_speed_default_param', rot_speed_default,
+                               ParameterDescriptor(description='Default rotational full speed, rad/s'))
+        self.declare_parameter('low_rot_speed_default_param', low_rot_speed_default,
+                               ParameterDescriptor(description='Default rotational low speed, rad/s'))
+        self.declare_parameter('rot_slew_rate_default_param', rot_slew_rate_default,
+                               ParameterDescriptor(description='Default rotational slew rate, rad/s^2 per tick'))
+
+        # initialize class members
         self.set_defaults()
         self.commandedLinear = 0.0
         self.commandedAngular = 0.0
@@ -61,10 +80,10 @@ class MoveParent(Node):
         self.cmd_vel_pub.publish(self.move_cmd)
 
     def slew_vel(self, to):
-        return self.slew(self.commandedLinear, to, vel_slew_rate)
+        return self.slew(self.commandedLinear, to, self.vel_slew_rate)
 
     def slew_rot(self, to):
-        return self.slew(self.commandedAngular, to, rot_slew_rate)
+        return self.slew(self.commandedAngular, to, self.rot_slew_rate)
 
     def slew(self, current, to, slew_rate):
         diff = to - current
@@ -82,12 +101,18 @@ class MoveParent(Node):
         return self.odom_started
 
     def set_defaults(self):
-        self.speed = speed_default
-        self.full_speed = speed_default
-        self.low_speed = low_speed_default
-        self.rot_speed = rot_speed_default
-        self.full_rot_speed = rot_speed_default
-        self.low_rot_speed = low_rot_speed_default
+        # linear speed parameters
+        self.speed = self.get_parameter('speed_default_param').get_parameter_value().double_value
+        self.full_speed = self.speed
+        self.low_speed = self.get_parameter('low_speed_default_param').get_parameter_value().double_value
+        self.vel_slew_rate = self.get_parameter('vel_slew_rate_default_param').get_parameter_value().double_value
+        # self.get_logger().info('Linear speed parameter: {:0.2f} m/s'.format(self.speed))
+
+        # rotational speed parameters
+        self.rot_speed = self.get_parameter('rot_speed_default_param').get_parameter_value().double_value
+        self.full_rot_speed = self.rot_speed
+        self.low_rot_speed = self.get_parameter('low_rot_speed_default_param').get_parameter_value().double_value
+        self.rot_slew_rate = self.get_parameter('rot_slew_rate_default_param').get_parameter_value().double_value
 
     # implement a thread that keeps calling spin_once() so rate.sleep() will work
     def spin_thread_entry(self):
