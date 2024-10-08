@@ -5,7 +5,6 @@ import time
 from math import sqrt, pow, pi, atan2
 
 import rclpy
-import tf_transformations
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_interfaces.msg import WaypointsDebug
@@ -155,7 +154,7 @@ class DriveWaypoints(MoveParent):
             self.odom.pose.pose.orientation.z,
             self.odom.pose.pose.orientation.w,
         ]
-        euler_angles = tf_transformations.euler_from_quaternion(q)
+        euler_angles = self.euler_from_quaternion(q)
         heading = self.normalize(euler_angles[2])
 
         # from dpa page: target_angle = (90 - (atan2(yd,xd)*(180/PI))) - (heading*(180/PI));

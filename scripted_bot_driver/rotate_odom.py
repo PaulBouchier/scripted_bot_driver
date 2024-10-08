@@ -6,7 +6,6 @@ import time
 from math import radians, degrees, copysign, sqrt, pow, pi, fmod
 
 import rclpy
-import tf_transformations
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_driver.anglr import  Angle
@@ -124,7 +123,7 @@ class RotateOdom(MoveParent):
             self.odom.pose.pose.orientation.z,
             self.odom.pose.pose.orientation.w,
         ]
-        euler_angles = tf_transformations.euler_from_quaternion(q)
+        euler_angles = self.euler_from_quaternion(q)
         self.heading = Angle(euler_angles[2]).normalized().radians  # normalize heading to [0, 2pi), though it should be already
         
         if self.run_once:
