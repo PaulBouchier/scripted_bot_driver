@@ -174,6 +174,9 @@ class DriveWaypoints(MoveParent):
         self.debug_msg.distance = distance
         self.debug_msg.bearing = bearing
         self.debug_msg.bearing_normalized = bearing_normalized
+        self.debug_msg.robot_x = self.odom.pose.pose.position.x
+        self.debug_msg.robot_y = self.odom.pose.pose.position.y
+        self.debug_msg.frame_id = self.odom.header.frame_id
         self.debug_pub.publish(self.debug_msg)
 
 

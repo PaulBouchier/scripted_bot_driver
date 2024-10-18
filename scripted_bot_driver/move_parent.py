@@ -12,7 +12,7 @@ import math
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
 from scripted_bot_interfaces.action import Move
 from rcl_interfaces.msg import ParameterDescriptor
@@ -56,8 +56,12 @@ class MoveParent(Node):
         # subscribers to robot data
         self.odom = Odometry()
         self.odom_started = False
-        self.subscription = self.create_subscription(
+        self.odom_sub = self.create_subscription(
             Odometry, 'odom', self.odom_callback, 10)
+
+        self.utm = PoseStamped()
+        self.utm_sub = self.create_subscription(
+            PoseStamped, 'utm', self.utm_callback, 10)
         
         # Publisher to control robot motion
         self.move_cmd = Twist()
@@ -119,6 +123,12 @@ class MoveParent(Node):
     def odom_callback(self, odom_msg):
         self.odom = odom_msg
         self.odom_started = True
+        if self.odom.header.stamp.sec - self.utm.header.stamp.sec < 5:
+            self.odom.pose.pose.position.x = self.utm.pose.position.x   # if utm msg is less than 5 sec old, use it for (x,y),
+            self.odom.pose.pose.position.y = self.utm.pose.position.y   # else use wheel encoders position
+    
+    def utm_callback(self, utm_msg):
+        self.utm = utm_msg
     
     def is_odom_started(self):
         return self.odom_started
