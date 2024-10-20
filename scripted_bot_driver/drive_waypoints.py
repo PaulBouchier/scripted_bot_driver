@@ -154,7 +154,13 @@ class DriveWaypoints(MoveParent):
             self.odom.pose.pose.orientation.z,
             self.odom.pose.pose.orientation.w,
         ]
-        euler_angles = self.euler_from_quaternion(q)
+        #euler_angles = self.euler_from_quaternion(q)
+        euler_angles = self.euler_from_quaternion(
+            self.odom.pose.pose.orientation.x,
+            self.odom.pose.pose.orientation.y,
+            self.odom.pose.pose.orientation.z,
+            self.odom.pose.pose.orientation.w,
+        )
         heading = self.normalize(euler_angles[2])
 
         # from dpa page: target_angle = (90 - (atan2(yd,xd)*(180/PI))) - (heading*(180/PI));
@@ -174,9 +180,6 @@ class DriveWaypoints(MoveParent):
         self.debug_msg.distance = distance
         self.debug_msg.bearing = bearing
         self.debug_msg.bearing_normalized = bearing_normalized
-        self.debug_msg.robot_x = self.odom.pose.pose.position.x
-        self.debug_msg.robot_y = self.odom.pose.pose.position.y
-        self.debug_msg.frame_id = self.odom.header.frame_id
         self.debug_pub.publish(self.debug_msg)
 
 

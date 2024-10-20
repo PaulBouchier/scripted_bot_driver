@@ -12,7 +12,7 @@ import math
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from scripted_bot_interfaces.action import Move
 from rcl_interfaces.msg import ParameterDescriptor
@@ -56,12 +56,8 @@ class MoveParent(Node):
         # subscribers to robot data
         self.odom = Odometry()
         self.odom_started = False
-        self.odom_sub = self.create_subscription(
+        self.subscription = self.create_subscription(
             Odometry, 'odom', self.odom_callback, 10)
-
-        self.utm = PoseStamped()
-        self.utm_sub = self.create_subscription(
-            PoseStamped, 'utm', self.utm_callback, 10)
         
         # Publisher to control robot motion
         self.move_cmd = Twist()
@@ -99,6 +95,28 @@ class MoveParent(Node):
 
         return q
     
+    def euler_from_quaternion(self, x, y, z, w):
+        """
+        Convert a quaternion into euler angles (roll, pitch, yaw)
+        roll is rotation around x in radians (counterclockwise)
+        pitch is rotation around y in radians (counterclockwise)
+        yaw is rotation around z in radians (counterclockwise)
+        """
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll_x = math.atan2(t0, t1)
+     
+        t2 = +2.0 * (w * y - z * x)
+        t2 = +1.0 if t2 > +1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        pitch_y = math.asin(t2)
+     
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw_z = math.atan2(t3, t4)
+     
+        return [roll_x, pitch_y, yaw_z] # in radians
+
     def send_move_cmd(self, linear, angular):
         self.move_cmd.linear.x = linear
         self.move_cmd.angular.z = angular
@@ -123,12 +141,6 @@ class MoveParent(Node):
     def odom_callback(self, odom_msg):
         self.odom = odom_msg
         self.odom_started = True
-        if self.odom.header.stamp.sec - self.utm.header.stamp.sec < 5:
-            self.odom.pose.pose.position.x = self.utm.pose.position.x   # if utm msg is less than 5 sec old, use it for (x,y),
-            self.odom.pose.pose.position.y = self.utm.pose.position.y   # else use wheel encoders position
-    
-    def utm_callback(self, utm_msg):
-        self.utm = utm_msg
     
     def is_odom_started(self):
         return self.odom_started
@@ -185,7 +197,7 @@ class MoveParent(Node):
     # call the subclass execute callback
     def call_exec_cb(self, goal_handle):
         self.get_logger().info('{} action_exec_cb called'.format(self.action_name))
-        self.print()
+        #self.print()
         self._goal_handle = goal_handle
         move_results = []
 
