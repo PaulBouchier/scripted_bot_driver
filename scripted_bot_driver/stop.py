@@ -14,7 +14,6 @@ class Stop(MoveParent):
         super().__init__('stop')
 
         self.start_action_server()
-        self.start_spin_thread()
 
     def parse_argv(self, argv):
         self.run_once = True

@@ -32,10 +32,6 @@ class RotateOdom(MoveParent):
         self.angle_error = 0.0
 
         self.start_action_server()
-        self.start_spin_thread()
-
-        # Initialize timer to call run method at 30 Hz - no worky
-        #self.timer = self.create_timer(1.0 / 30.0, self.run)
 
     def parse_argv(self, argv):
         pargs = 0;  #parsed args count

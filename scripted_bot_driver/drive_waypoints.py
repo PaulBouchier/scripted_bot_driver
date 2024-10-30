@@ -28,7 +28,6 @@ class DriveWaypoints(MoveParent):
         self.debug_pub = self.create_publisher(WaypointsDebug, 'waypoints_debug', 10)
 
         self.start_action_server()
-        self.start_spin_thread()
 
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))

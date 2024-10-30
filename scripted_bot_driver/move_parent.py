@@ -65,11 +65,6 @@ class MoveParent(Node):
             Twist, 'cmd_vel', 10
         )
 
-        # Create a thread to run spin_once() so Rate.sleep() works
-        # FIXME
-        self.stop_thread_flag = False
-        self.spin_thread = threading.Thread(target=self.spin_thread_entry)
-
         # set up action
         self.feedback_msg = Move.Feedback()
         
@@ -107,10 +102,10 @@ class MoveParent(Node):
         pitch is rotation around y in radians (counterclockwise)
         yaw is rotation around z in radians (counterclockwise)
         """
-        x = q[0]
-        y = q[1]
-        z = q[2]
-        w = q[3]
+        x = q.x
+        y = q.y
+        z = q.z
+        w = q.w
 
         t0 = +2.0 * (w * x + y * z)
         t1 = +1.0 - 2.0 * (x * x + y * y)
@@ -168,17 +163,6 @@ class MoveParent(Node):
         self.full_rot_speed = self.rot_speed
         self.low_rot_speed = self.get_parameter('low_rot_speed_default_param').get_parameter_value().double_value
         self.rot_slew_rate = self.get_parameter('rot_slew_rate_default_param').get_parameter_value().double_value
-
-    # implement a thread that keeps calling spin_once() so rate.sleep() will work
-    def spin_thread_entry(self):
-        while(self.stop_thread_flag == False and rclpy.ok()):
-            rclpy.spin_once(self, timeout_sec=0.01)
-            if (self.stop_thread_flag):
-                self.get_logger().debug('Node %s spinner shutting down'%(self.node_name))
-                return
-
-    def start_spin_thread(self):
-        self.spin_thread.start()
 
     # send feedback message to client
     def send_feedback(self, msg, progress):
@@ -274,11 +258,6 @@ class MoveParent(Node):
             #callback_group=ReentrantCallbackGroup()
         )
 
-    def shutdown(self):
-        # FIXME
-        self.stop_thread_flag = True
-        time.sleep(0.02)    # wait for spin_thread to exit
-
 
 def main(args=None):
     rclpy.init()
@@ -293,9 +272,6 @@ def main(args=None):
     time.sleep(1)
 
     # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    move_parent.shutdown()
     move_parent.destroy_node()
     rclpy.shutdown()
 
