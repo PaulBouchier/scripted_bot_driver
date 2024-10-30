@@ -27,6 +27,9 @@ class DriveWaypoints(MoveParent):
         self.debug_msg = WaypointsDebug()
         self.debug_pub = self.create_publisher(WaypointsDebug, 'waypoints_debug', 10)
 
+        self.start_action_server()
+        self.start_spin_thread()
+
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
         self.distance = 0.0
@@ -148,19 +151,7 @@ class DriveWaypoints(MoveParent):
         distance = sqrt(pow(x_dist, 2) + pow(y_dist, 2))
 
         # compute heading from /odom
-        q = [
-            self.odom.pose.pose.orientation.x,
-            self.odom.pose.pose.orientation.y,
-            self.odom.pose.pose.orientation.z,
-            self.odom.pose.pose.orientation.w,
-        ]
-        #euler_angles = self.euler_from_quaternion(q)
-        euler_angles = self.euler_from_quaternion(
-            self.odom.pose.pose.orientation.x,
-            self.odom.pose.pose.orientation.y,
-            self.odom.pose.pose.orientation.z,
-            self.odom.pose.pose.orientation.w,
-        )
+        euler_angles = self.euler_from_quaternion(self.odom.pose.pose.orientation)
         heading = self.normalize(euler_angles[2])
 
         # from dpa page: target_angle = (90 - (atan2(yd,xd)*(180/PI))) - (heading*(180/PI));
@@ -216,10 +207,11 @@ class DriveWaypoints(MoveParent):
 def main():
     rclpy.init()
     nh = DriveWaypoints()
-    nh.start_action_server()
-    nh.start_spin_thread()
 
     rclpy.spin(nh)
+
+    nh.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

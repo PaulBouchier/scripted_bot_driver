@@ -66,11 +66,16 @@ class MoveParent(Node):
         )
 
         # Create a thread to run spin_once() so Rate.sleep() works
+        # FIXME
         self.stop_thread_flag = False
         self.spin_thread = threading.Thread(target=self.spin_thread_entry)
 
         # set up action
         self.feedback_msg = Move.Feedback()
+        
+        # set up to loop on run() in the subclass and send periodic feedback
+        self.run_action = False
+
 
     def quaternion_from_euler(self, ai, aj, ak):
         ai /= 2.0
@@ -95,13 +100,18 @@ class MoveParent(Node):
 
         return q
     
-    def euler_from_quaternion(self, x, y, z, w):
+    def euler_from_quaternion(self, q):
         """
         Convert a quaternion into euler angles (roll, pitch, yaw)
         roll is rotation around x in radians (counterclockwise)
         pitch is rotation around y in radians (counterclockwise)
         yaw is rotation around z in radians (counterclockwise)
         """
+        x = q[0]
+        y = q[1]
+        z = q[2]
+        w = q[3]
+
         t0 = +2.0 * (w * x + y * z)
         t1 = +1.0 - 2.0 * (x * x + y * y)
         roll_x = math.atan2(t0, t1)
@@ -194,36 +204,50 @@ class MoveParent(Node):
         else:
             return GoalResponse.ACCEPT
 
-    # call the subclass execute callback
-    def call_exec_cb(self, goal_handle):
+    # timer callback to call run() in the subclass until done
+    def action_run_cb(self):
+        #self.get_logger().info('run() method entry with run_action: {}'.format(self.run_action))
+        #if (self.run_action == False):
+        #    return
+        if (self.run()):
+            # subclass returned true to indicate action is complete
+            self.action_complete = True  # indicate to action_exec_cb that action is complete
+            self.destroy_timer(self.run_loop_timer)
+            self.get_logger().info("run() method reported action complete")
+            return
+        
+        # action not complete, give feedback if needed
+        self.loop_count += 1
+        if ((self.loop_count % self.feedback_period) == 0):
+            text_feedback, progress_feedback = self.get_feedback()
+            self.send_feedback(text_feedback, progress_feedback)
+
+    # the action-execute callback
+    def action_exec_cb(self, goal_handle):
         self.get_logger().info('{} action_exec_cb called'.format(self.action_name))
-        #self.print()
         self._goal_handle = goal_handle
         move_results = []
+        self.action_complete = False
+        self.loop_count = 0
+        self.feedback_period = 10    # give feedback every this-many loops
+
 
         # set commanded linear/angular from current linear/angular to pick up current vel from which to slew
         self.commandedLinear = self.odom.twist.twist.linear.x
         self.commandedAngular = self.odom.twist.twist.angular.z
 
-        # set up to loop on run() and send periodic feedback
-        loop_period = 0.1
-        feedback_period = 10    # give feedback every this-many loops
-        loop_count = 0
+        # start the run_loop_timer calling run() in the subclass
+        self.run_loop_timer = self.create_timer(1.0/loop_rate, self.action_run_cb)
+        #self.run_action = True
 
-        # call the run callback in a loop to perform the move
-        try:
-            while (rclpy.ok()):
-                if self.run():
-                    print("calling self.run")
-                    break
-                loop_count += 1
-                if ((loop_count % feedback_period) == 0):
-                    text_feedback, progress_feedback = self.get_feedback()
-                    self.send_feedback(text_feedback, progress_feedback)
-                time.sleep(loop_period)
-        except Exception as e:
-            print("Exception in call_exec_cb")
-            self.get_logger().error(e)
+        # let the action_run callback loop perform the move until it indicates complete
+        while (rclpy.ok() and not self.action_complete):
+            #self.get_logger().info("sleeping while timer runs")
+            rclpy.spin_once(self)
+            time.sleep(0.02)
+        #except Exception as e:
+        #    print("Exception in call_exec_cb")
+        #    self.get_logger().error(e)
 
         move_results = self.finish_cb()
         goal_handle.succeed()
@@ -243,7 +267,7 @@ class MoveParent(Node):
             self,
             Move,
             action_name,
-            execute_callback=self.call_exec_cb,
+            execute_callback=self.action_exec_cb,
             goal_callback=self.goal_callback,
             #handle_accepted_callback=self.handle_accepted_callback,
             #cancel_callback=self.cancel_callback,
@@ -251,6 +275,7 @@ class MoveParent(Node):
         )
 
     def shutdown(self):
+        # FIXME
         self.stop_thread_flag = True
         time.sleep(0.02)    # wait for spin_thread to exit
 

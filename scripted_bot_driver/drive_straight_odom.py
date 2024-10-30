@@ -18,6 +18,8 @@ class DriveStraightOdom(MoveParent):
         self.debug_msg = DriveStraightDebug()
         self.debug_pub = self.create_publisher(DriveStraightDebug, 'drive_straight_debug', 10)
 
+        self.start_action_server()
+
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
         self.run_once = True
@@ -89,24 +91,24 @@ class DriveStraightOdom(MoveParent):
 
     def get_feedback(self):
         progress_feedback = self.delta_odom
-        text_feedback = 'Driving straight at {}, progress (m): '.format(
+        text_feedback = 'Driving straight at {}, traveled {}m'.format(
             self.commandedLinear, progress_feedback)
         return text_feedback, progress_feedback
 
+    # finished action, clean up after a move and reset defaults for next move
     def finish_cb(self):
-        # clean up after a move and reset defaults for next move
         self.set_defaults()
-
         results = [self.delta_odom]
         return results
 
 def main():
     rclpy.init()
     nh = DriveStraightOdom()
-    nh.start_action_server()
-    nh.start_spin_thread()
 
     rclpy.spin(nh)
+
+    nh.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

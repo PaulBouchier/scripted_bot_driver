@@ -13,6 +13,9 @@ class Stop(MoveParent):
     def __init__(self):
         super().__init__('stop')
 
+        self.start_action_server()
+        self.start_spin_thread()
+
     def parse_argv(self, argv):
         self.run_once = True
         self.pause = 0.0            # pause after stop, in seconds
@@ -83,10 +86,11 @@ def main():
     rclpy.init()
 
     nh = Stop()
-    nh.start_action_server()
-    nh.start_spin_thread()
 
     rclpy.spin(nh)
+
+    nh.destroy_node()
+    rclpy.shutdown()
 
 
 if __name__ == '__main__':

@@ -31,6 +31,9 @@ class RotateOdom(MoveParent):
         self.debug_pub = self.create_publisher(RotateOdomDebug, 'rotate_odom_debug', 10)
         self.angle_error = 0.0
 
+        self.start_action_server()
+        self.start_spin_thread()
+
         # Initialize timer to call run method at 30 Hz - no worky
         #self.timer = self.create_timer(1.0 / 30.0, self.run)
 
@@ -117,13 +120,7 @@ class RotateOdom(MoveParent):
             return True
 
         # compute heading from /odom
-        q = [
-            self.odom.pose.pose.orientation.x,
-            self.odom.pose.pose.orientation.y,
-            self.odom.pose.pose.orientation.z,
-            self.odom.pose.pose.orientation.w,
-        ]
-        euler_angles = self.euler_from_quaternion(q)
+        euler_angles = self.euler_from_quaternion(self.odom.pose.pose.orientation)
         self.heading = Angle(euler_angles[2]).normalized().radians  # normalize heading to [0, 2pi), though it should be already
         
         if self.run_once:
@@ -225,10 +222,11 @@ class RotateOdom(MoveParent):
 def main():
     rclpy.init()
     nh = RotateOdom()
-    nh.start_action_server()
-    nh.start_spin_thread()
 
     rclpy.spin(nh)
+
+    nh.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
