@@ -5,6 +5,7 @@ import time
 
 import rclpy
 from rclpy.duration import Duration
+from rclpy.executors import MultiThreadedExecutor
 
 from scripted_bot_driver.move_parent import MoveParent
 
@@ -86,7 +87,9 @@ def main():
 
     nh = Stop()
 
-    rclpy.spin(nh)
+    # Use a MultiThreadedExecutor to enable processing goals concurrently
+    executor = MultiThreadedExecutor()
+    rclpy.spin(nh, executor=executor)
 
     nh.destroy_node()
     rclpy.shutdown()

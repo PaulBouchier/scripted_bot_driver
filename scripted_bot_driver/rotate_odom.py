@@ -6,6 +6,7 @@ import time
 from math import radians, degrees, copysign, sqrt, pow, pi, fmod
 
 import rclpy
+from rclpy.executors import MultiThreadedExecutor
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_driver.anglr import  Angle
@@ -219,7 +220,9 @@ def main():
     rclpy.init()
     nh = RotateOdom()
 
-    rclpy.spin(nh)
+    # Use a MultiThreadedExecutor to enable processing goals concurrently
+    executor = MultiThreadedExecutor()
+    rclpy.spin(nh, executor=executor)
 
     nh.destroy_node()
     rclpy.shutdown()

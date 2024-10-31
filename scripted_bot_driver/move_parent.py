@@ -5,7 +5,6 @@ This is the parent class of several move child classes.
 It provides support commont to all the move classes
 '''
 import time
-import threading
 
 import rclpy
 import math
@@ -68,60 +67,6 @@ class MoveParent(Node):
         # set up action
         self.feedback_msg = Move.Feedback()
         
-        # set up to loop on run() in the subclass and send periodic feedback
-        self.run_action = False
-
-
-    def quaternion_from_euler(self, ai, aj, ak):
-        ai /= 2.0
-        aj /= 2.0
-        ak /= 2.0
-        ci = math.cos(ai)
-        si = math.sin(ai)
-        cj = math.cos(aj)
-        sj = math.sin(aj)
-        ck = math.cos(ak)
-        sk = math.sin(ak)
-        cc = ci*ck
-        cs = ci*sk
-        sc = si*ck
-        ss = si*sk
-
-        q = np.empty((4, ))
-        q[0] = cj*sc - sj*cs
-        q[1] = cj*ss + sj*cc
-        q[2] = cj*cs - sj*sc
-        q[3] = cj*cc + sj*ss
-
-        return q
-    
-    def euler_from_quaternion(self, q):
-        """
-        Convert a quaternion into euler angles (roll, pitch, yaw)
-        roll is rotation around x in radians (counterclockwise)
-        pitch is rotation around y in radians (counterclockwise)
-        yaw is rotation around z in radians (counterclockwise)
-        """
-        x = q.x
-        y = q.y
-        z = q.z
-        w = q.w
-
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll_x = math.atan2(t0, t1)
-     
-        t2 = +2.0 * (w * y - z * x)
-        t2 = +1.0 if t2 > +1.0 else t2
-        t2 = -1.0 if t2 < -1.0 else t2
-        pitch_y = math.asin(t2)
-     
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw_z = math.atan2(t3, t4)
-     
-        return [roll_x, pitch_y, yaw_z] # in radians
-
     def send_move_cmd(self, linear, angular):
         self.move_cmd.linear.x = linear
         self.move_cmd.angular.z = angular
@@ -178,7 +123,7 @@ class MoveParent(Node):
     def goal_callback(self, goal_request):
         if (not self.is_odom_started()):
             # odom not started - return abort
-            self.get_logger().error('stop action failed - odometry not running')
+            self.get_logger().error('Goal rejected - odometry not running')
             return GoalResponse.REJECT
         # parse the move_spec specified in the goal
         if (self.parse_argv(goal_request.move_spec) < 0):
@@ -190,13 +135,9 @@ class MoveParent(Node):
 
     # timer callback to call run() in the subclass until done
     def action_run_cb(self):
-        #self.get_logger().info('run() method entry with run_action: {}'.format(self.run_action))
-        #if (self.run_action == False):
-        #    return
         if (self.run()):
             # subclass returned true to indicate action is complete
             self.action_complete = True  # indicate to action_exec_cb that action is complete
-            self.destroy_timer(self.run_loop_timer)
             self.get_logger().info("run() method reported action complete")
             return
         
@@ -222,23 +163,18 @@ class MoveParent(Node):
 
         # start the run_loop_timer calling run() in the subclass
         self.run_loop_timer = self.create_timer(1.0/loop_rate, self.action_run_cb)
-        #self.run_action = True
 
         # let the action_run callback loop perform the move until it indicates complete
         while (rclpy.ok() and not self.action_complete):
-            #self.get_logger().info("sleeping while timer runs")
-            rclpy.spin_once(self)
-            time.sleep(0.02)
-        #except Exception as e:
-        #    print("Exception in call_exec_cb")
-        #    self.get_logger().error(e)
+            time.sleep(0.1)
 
-        move_results = self.finish_cb()
+        self.destroy_timer(self.run_loop_timer)
         goal_handle.succeed()
 
         move_result = Move.Result()
-        move_result.move_results = move_results
+        move_results = self.finish_cb()  # get the move results from the subclass
         self.get_logger().info('action finished with success, results: {}'.format(move_results))
+        move_result.move_results = move_results
         return move_result
 
     # start action server
@@ -246,7 +182,6 @@ class MoveParent(Node):
         self.action_name = action_name
         self.get_logger().info('starting action server for action {}'.format(action_name))
         self._goal_handle = None
-        self._goal_lock = threading.Lock()
         self._action_server = ActionServer(
             self,
             Move,
@@ -258,6 +193,55 @@ class MoveParent(Node):
             #callback_group=ReentrantCallbackGroup()
         )
 
+    def quaternion_from_euler(self, ai, aj, ak):
+        ai /= 2.0
+        aj /= 2.0
+        ak /= 2.0
+        ci = math.cos(ai)
+        si = math.sin(ai)
+        cj = math.cos(aj)
+        sj = math.sin(aj)
+        ck = math.cos(ak)
+        sk = math.sin(ak)
+        cc = ci*ck
+        cs = ci*sk
+        sc = si*ck
+        ss = si*sk
+
+        q = np.empty((4, ))
+        q[0] = cj*sc - sj*cs
+        q[1] = cj*ss + sj*cc
+        q[2] = cj*cs - sj*sc
+        q[3] = cj*cc + sj*ss
+
+        return q
+    
+    def euler_from_quaternion(self, q):
+        """
+        Convert a quaternion into euler angles (roll, pitch, yaw)
+        roll is rotation around x in radians (counterclockwise)
+        pitch is rotation around y in radians (counterclockwise)
+        yaw is rotation around z in radians (counterclockwise)
+        """
+        x = q.x
+        y = q.y
+        z = q.z
+        w = q.w
+
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll_x = math.atan2(t0, t1)
+     
+        t2 = +2.0 * (w * y - z * x)
+        t2 = +1.0 if t2 > +1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        pitch_y = math.asin(t2)
+     
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw_z = math.atan2(t3, t4)
+     
+        return [roll_x, pitch_y, yaw_z] # in radians
 
 def main(args=None):
     rclpy.init()

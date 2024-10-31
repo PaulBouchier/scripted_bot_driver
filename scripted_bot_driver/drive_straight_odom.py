@@ -5,6 +5,7 @@ import time
 from math import pow, sqrt
 
 import rclpy
+from rclpy.executors import MultiThreadedExecutor
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_interfaces.msg import DriveStraightDebug
@@ -18,7 +19,8 @@ class DriveStraightOdom(MoveParent):
         self.debug_msg = DriveStraightDebug()
         self.debug_pub = self.create_publisher(DriveStraightDebug, 'drive_straight_debug', 10)
 
-        self.start_action_server()
+        # create the action server for this move-type
+        self.create_action_server('drive_straight_odom')
 
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
@@ -86,9 +88,6 @@ class DriveStraightOdom(MoveParent):
 
         return False
 
-    def start_action_server(self):
-        self.create_action_server('drive_straight_odom')
-
     def get_feedback(self):
         progress_feedback = self.delta_odom
         text_feedback = 'Driving straight at {}, traveled {}m'.format(
@@ -105,7 +104,9 @@ def main():
     rclpy.init()
     nh = DriveStraightOdom()
 
-    rclpy.spin(nh)
+    # Use a MultiThreadedExecutor to enable processing goals concurrently
+    executor = MultiThreadedExecutor()
+    rclpy.spin(nh, executor=executor)
 
     nh.destroy_node()
     rclpy.shutdown()

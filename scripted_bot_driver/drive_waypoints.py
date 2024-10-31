@@ -5,6 +5,7 @@ import time
 from math import sqrt, pow, pi, atan2
 
 import rclpy
+from rclpy.executors import MultiThreadedExecutor
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_interfaces.msg import WaypointsDebug
@@ -207,7 +208,9 @@ def main():
     rclpy.init()
     nh = DriveWaypoints()
 
-    rclpy.spin(nh)
+    # Use a MultiThreadedExecutor to enable processing goals concurrently
+    executor = MultiThreadedExecutor()
+    rclpy.spin(nh, executor=executor)
 
     nh.destroy_node()
     rclpy.shutdown()
