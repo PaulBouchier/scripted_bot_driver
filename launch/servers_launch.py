@@ -30,5 +30,12 @@ def generate_launch_description():
             name='drive_waypoints',
             output='screen',
             emulate_tty=True
+        ),
+        Node(
+            package='scripted_bot_driver',
+            executable='seek2cone',
+            name='seek2cone',
+            output='screen',
+            emulate_tty=True
         )
     ])

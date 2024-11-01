@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import sys
-import threading
 import time
 
 import rclpy
@@ -25,9 +24,7 @@ class ScriptedMover(Node):
         self.drive_straight_client = ActionClient(self, Move, 'drive_straight_odom')
         self.rotate_odom_client = ActionClient(self, Move, 'rotate_odom')
         self.drive_waypoints_client = ActionClient(self, Move, 'drive_waypoints')
-
-        # Create a thread to process supplied arguments and send action requests
-        #self.action_thread = threading.Thread(target=self.action_thread_entry)
+        self.seek2cone_client = ActionClient(self, Move, 'seek2cone')
 
         self.action_complete = False
 
@@ -35,7 +32,7 @@ class ScriptedMover(Node):
         current_arg = 0
         self.single_moves = []
         self.current_single_move = 0
-        supported_moves = ['stop', 'movo', 'roto', 'drive_waypoints']
+        supported_moves = ['stop', 'movo', 'roto', 'drive_waypoints', 'seek2cone']
 
         print('argv: {}'.format(argv))
         while current_arg != len(argv):
@@ -48,6 +45,8 @@ class ScriptedMover(Node):
                 move_type = 'rotate'
             elif argv[current_arg] == 'drive_waypoints':
                 move_type = 'drive_waypoints'
+            elif argv[current_arg] == 'seek2cone':
+                move_type = 'seek2cone'
             else:
                 self.get_logger().fatal('Error - unknown move type {}'.format(argv[current_arg]))
                 rclpy.shutdown()
@@ -87,6 +86,9 @@ class ScriptedMover(Node):
         elif(single_move.move_type == 'drive_waypoints'):
                 self.send_goal(self.drive_waypoints_client, single_move.move_spec)
                 self.get_logger().info('sent drive waypoints goal')
+        elif(single_move.move_type == 'seek2cone'):
+                self.send_goal(self.seek2cone_client, single_move.move_spec)
+                self.get_logger().info('sent seek2cone goal')
         else:
             self.get_logger().fatal('ERROR: requested to run unsupported move {}'.format(single_move.move_type))
             rclpy.shutdown()
@@ -129,24 +131,12 @@ class ScriptedMover(Node):
         else:
             self.run_single_move()
     
-    def start_action_thread(self):
-        self.action_thread.start()
-
-    def action_thread_entry(self):
-        self.get_logger().info('Starting thread to process move commands')
-        future = self.send_drive_straight_goal(['2'])
-        while not self.action_complete:
-            time.sleep(1)
-
-        self.get_logger().info('all moves completed - shutting down')
-        rclpy.shutdown()
-
 
 def usage():
     print('Usage: scripted_mover.py [commands] - executes the series of move commands provided')
     print('Supported move commands are:')
     print('movo <distance> [speed] - drive straight for <distance> meters')
-    #print('arc <angle> <radius> <f | b>')
+    print('seek2cone <max_distance> [speed] - seek cone for <max_distance> meters')
     print('roto <target_angle>[d|p] <mode> [angular_speed][d]  [drive_speed] - rotate <angle> radians, or pi*<target_angle> if [p] or degrees if [d], +angle is CCW., mode 1  (default) is shortest_path, mode 2 is strict. Angular speed, if given, allows same modifiers as target_angle.  Drive speed if given is in meters per second, defaults to zero.')
     print('drive_waypoints <target_x> <target_y> [ more_targets ] - drive to a list of targets')
     print('stop [delay]- ramp linear and rotational speed down to 0 with optional pause at end')
@@ -159,10 +149,8 @@ def main(args=None):
     rclpy.init(args=args)
 
     move_client = ScriptedMover()
-    # move_client.start_action_thread()
     move_client.parse_moves(sys.argv[1:])
     move_client.run_single_move()
-    #future = move_client.send_drive_straight_goal(['2'])
     rclpy.spin(move_client)
 
 

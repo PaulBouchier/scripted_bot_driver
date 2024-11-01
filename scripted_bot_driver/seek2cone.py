@@ -9,31 +9,46 @@ from rclpy.executors import MultiThreadedExecutor
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_interfaces.msg import DriveStraightDebug
+from robot_interfaces.msg import PlatformData
 
+'''
+The Seek2Cone class drives toward where it detects the cone, for a limited distance. It completes
+the action when it either detects hitting the cone (bumper pressed), or max distance reached
+'''
 
-class DriveStraightOdom(MoveParent):
+class Seek2Cone(MoveParent):
     def __init__(self):
-        super().__init__('drive_straight')
+        super().__init__('seek2cone')
 
+        # subscriber to robot PlatformData
+        self.subscription = self.create_subscription(
+            PlatformData, 'platform_data', self.platform_data_cb, 10)
+        
         # Publisher for debug data
         self.debug_msg = DriveStraightDebug()
-        self.debug_pub = self.create_publisher(DriveStraightDebug, 'drive_straight_debug', 10)
+        self.debug_pub = self.create_publisher(DriveStraightDebug, 'seek2ConeDebug', 10)
 
         # create the action server for this move-type
-        self.create_action_server('drive_straight_odom')
+        self.create_action_server('seek2cone')
+
+    def platform_data_cb(self, msg):
+        if (not self.bumper_pressed and msg.bumper_pressed):
+            self.bumper_pressed = True  # latch bumper_pressed
+            self.get_logger().info('Detected bumper pressed!!!')
 
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
         self.run_once = True
+        self.bumper_pressed = False
         self.delta_odom = 0.0
         self.set_defaults()
 
         if (len(argv) != 1 and len(argv) != 2):
-            self.get_logger().fatal('Incorrrect number of args given to DriveStraightOdom: {}'.format(len(argv)))
+            self.get_logger().fatal('Incorrrect number of args given to Seek2Cone: {}'.format(len(argv)))
             return -1
 
         try:
-            self.distance = float(argv[0])  # pick off first arg from supplied list
+            self.distance = float(argv[0])  # max distance to seek
             self.debug_msg.distance = self.distance
             if self.distance < 0:
                 self.distance = -self.distance  # distance is always +ve
@@ -59,8 +74,8 @@ class DriveStraightOdom(MoveParent):
         if self.run_once:
             self.initial_x = self.odom.pose.pose.position.x
             self.initial_y = self.odom.pose.pose.position.y
-            self.get_logger().info('Drive straight with odometry for {} m at speed: {}'.format(self.distance, self.speed))
-            self.get_logger().info('Initial X-Y: {} {}, goal distance: {}'.format(self.initial_x, self.initial_y, self.distance))
+            self.get_logger().info('seek cone for max {} m at speed: {}'.format(self.distance, self.speed))
+            self.get_logger().info('Initial X-Y: {} {}'.format(self.initial_x, self.initial_y))
             self.debug_msg.initial_x = self.initial_x
             self.debug_msg.initial_y = self.initial_y
             self.run_once = False
@@ -70,12 +85,12 @@ class DriveStraightOdom(MoveParent):
         self.delta_odom = sqrt(pow(delta_x, 2) + pow(delta_y, 2))
         # self.get_logger().info('delta_x: {} delta_y: {} delta_odom: {}'.format(delta_x, delta_y, self.delta_odom))
 
-        if (self.delta_odom > self.distance):
-            self.send_move_cmd(0.0, 0.0)  # traveled required distance, slam on the brakes
+        if (self.bumper_pressed or self.delta_odom > self.distance):
+            self.send_move_cmd(0.0, 0.0)  # hit cone or traveled max distance, slam on the brakes
             self.get_logger().info('traveled: {} m'.format(self.delta_odom))
             return True
 
-        # accelerate to full speed as long as we haven't reached the goal
+        # accelerate to full speed
         self.send_move_cmd(self.slew_vel(self.speed), self.slew_rot(0.0))
         
         # publish debug data
@@ -89,7 +104,7 @@ class DriveStraightOdom(MoveParent):
 
     def get_feedback(self):
         progress_feedback = self.delta_odom
-        text_feedback = 'Driving straight at {}, traveled {}m'.format(
+        text_feedback = 'Seeking cone at {}, traveled {}m'.format(
             self.commandedLinear, progress_feedback)
         return text_feedback, progress_feedback
 
@@ -101,7 +116,7 @@ class DriveStraightOdom(MoveParent):
 
 def main():
     rclpy.init()
-    nh = DriveStraightOdom()
+    nh = Seek2Cone()
 
     # Use a MultiThreadedExecutor to enable processing goals concurrently
     executor = MultiThreadedExecutor()
