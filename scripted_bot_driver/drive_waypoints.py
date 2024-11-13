@@ -67,8 +67,8 @@ class DriveWaypoints(MoveParent):
 
     # run is called at the rate until it returns true
     def run(self):
-        if not self.is_odom_started():
-            self.get_logger().fatal('ERROR: robot odometry has not started - exiting')
+        if not self.is_map_started() or not self.is_odom_started():
+            self.get_logger().fatal('ERROR: robot odom or map topic has not started - exiting')
             return True
 
         if self.current_target == len(self.target_list):
@@ -146,12 +146,12 @@ class DriveWaypoints(MoveParent):
         self.get_logger().debug('Entered target_vector({}, {}, {})'.format(
             target_x, target_y, distance))
         last_distance = distance
-        x_dist = target_x - self.odom.pose.pose.position.x
-        y_dist = target_y - self.odom.pose.pose.position.y
+        x_dist = target_x - self.map.pose.position.x
+        y_dist = target_y - self.map.pose.position.y
         distance = sqrt(pow(x_dist, 2) + pow(y_dist, 2))
 
-        # compute heading from /odom
-        euler_angles = self.euler_from_quaternion(self.odom.pose.pose.orientation)
+        # compute heading from /map
+        euler_angles = self.euler_from_quaternion(self.map.pose.orientation)
         heading = self.normalize(euler_angles[2])
 
         # from dpa page: target_angle = (90 - (atan2(yd,xd)*(180/PI))) - (heading*(180/PI));
