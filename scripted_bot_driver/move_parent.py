@@ -11,7 +11,7 @@ import math
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
 from scripted_bot_interfaces.action import Move
 from rcl_interfaces.msg import ParameterDescriptor
@@ -55,8 +55,13 @@ class MoveParent(Node):
         # subscribers to robot data
         self.odom = Odometry()
         self.odom_started = False
-        self.subscription = self.create_subscription(
+        self.odom_sub = self.create_subscription(
             Odometry, 'odom', self.odom_callback, 10)
+
+        self.map = PoseStamped()
+        self.map_started = False
+        self.map_sub = self.create_subscription(
+            PoseStamped, 'map', self.map_callback, 10)
         
         # Publisher to control robot motion
         self.move_cmd = Twist()
@@ -94,6 +99,13 @@ class MoveParent(Node):
     
     def is_odom_started(self):
         return self.odom_started
+
+    def map_callback(self, map_msg):
+        self.map = map_msg
+        self.map_started = True
+    
+    def is_map_started(self):
+        return self.map_started
 
     def set_defaults(self):
         # linear speed parameters

@@ -22,6 +22,7 @@ class ScriptedMover(Node):
         super().__init__('scripted_mover_client')
         self.stop_client = ActionClient(self, Move, 'stop')
         self.drive_straight_client = ActionClient(self, Move, 'drive_straight_odom')
+        self.drive_straight_map_client = ActionClient(self, Move, 'drive_straight_map')
         self.rotate_odom_client = ActionClient(self, Move, 'rotate_odom')
         self.drive_waypoints_client = ActionClient(self, Move, 'drive_waypoints')
         self.seek2cone_client = ActionClient(self, Move, 'seek2cone')
@@ -32,7 +33,7 @@ class ScriptedMover(Node):
         current_arg = 0
         self.single_moves = []
         self.current_single_move = 0
-        supported_moves = ['stop', 'movo', 'roto', 'drive_waypoints', 'seek2cone']
+        supported_moves = ['stop', 'movo', 'movm', 'roto', 'drive_waypoints', 'seek2cone']
 
         print('argv: {}'.format(argv))
         while current_arg != len(argv):
@@ -40,7 +41,9 @@ class ScriptedMover(Node):
             if argv[current_arg] == 'stop':
                 move_type = 'stop'
             elif argv[current_arg] == 'movo':
-                move_type = 'drive_straight'
+                move_type = 'drive_straight_odom'
+            elif argv[current_arg] == 'movm':
+                move_type = 'drive_straight_map'
             elif argv[current_arg] == 'roto':
                 move_type = 'rotate'
             elif argv[current_arg] == 'drive_waypoints':
@@ -77,9 +80,12 @@ class ScriptedMover(Node):
         if(single_move.move_type == 'stop'):
             self.send_goal(self.stop_client, single_move.move_spec)
             self.get_logger().info('sent stop goal')
-        elif(single_move.move_type == 'drive_straight'):
+        elif(single_move.move_type == 'drive_straight_odom'):
             self.send_goal(self.drive_straight_client, single_move.move_spec)
             self.get_logger().info('sent drive_straight goal')
+        elif(single_move.move_type == 'drive_straight_map'):
+            self.send_goal(self.drive_straight_map_client, single_move.move_spec)
+            self.get_logger().info('sent drive_straight_map goal')
         elif(single_move.move_type == 'rotate'):
             self.send_goal(self.rotate_odom_client, single_move.move_spec)
             self.get_logger().info('sent rotate goal')
@@ -135,7 +141,8 @@ class ScriptedMover(Node):
 def usage():
     print('Usage: scripted_mover.py [commands] - executes the series of move commands provided')
     print('Supported move commands are:')
-    print('movo <distance> [speed] - drive straight for <distance> meters')
+    print('movo <distance> [speed] - drive straight for <distance> meters using odometry')
+    print('movm <distance> [speed] - drive straight for <distance> meters using map nav')
     print('seek2cone <max_distance> [speed] - seek cone for <max_distance> meters')
     print('roto <target_angle>[d|p] <mode> [angular_speed][d]  [drive_speed] - rotate <angle> radians, or pi*<target_angle> if [p] or degrees if [d], +angle is CCW., mode 1  (default) is shortest_path, mode 2 is strict. Angular speed, if given, allows same modifiers as target_angle.  Drive speed if given is in meters per second, defaults to zero.')
     print('drive_waypoints <target_x> <target_y> [ more_targets ] - drive to a list of targets')

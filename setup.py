@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'drive_straight_odom = scripted_bot_driver.drive_straight_odom:main',
+            'drive_straight_map = scripted_bot_driver.drive_straight_map:main',
             'drive_waypoints = scripted_bot_driver.drive_waypoints:main',
             'seek2cone = scripted_bot_driver.seek2cone:main',
             'stop = scripted_bot_driver.stop:main',
