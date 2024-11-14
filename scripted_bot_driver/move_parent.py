@@ -10,6 +10,7 @@ import rclpy
 import math
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
+from rclpy.duration import Duration
 
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
@@ -54,14 +55,10 @@ class MoveParent(Node):
 
         # subscribers to robot data
         self.odom = Odometry()
-        self.odom_started = False
-        self.odom_sub = self.create_subscription(
-            Odometry, 'odom', self.odom_callback, 10)
+        self.odom_msg_count = 0
 
         self.map = PoseStamped()
-        self.map_started = False
-        self.map_sub = self.create_subscription(
-            PoseStamped, 'map', self.map_callback, 10)
+        self.map_msg_count = 0
         
         # Publisher to control robot motion
         self.move_cmd = Twist()
@@ -95,17 +92,17 @@ class MoveParent(Node):
 
     def odom_callback(self, odom_msg):
         self.odom = odom_msg
-        self.odom_started = True
+        self.odom_msg_count += 1
     
     def is_odom_started(self):
-        return self.odom_started
+        return self.odom_msg_count > 2
 
     def map_callback(self, map_msg):
         self.map = map_msg
-        self.map_started = True
+        self.map_msg_count += 1
     
     def is_map_started(self):
-        return self.map_started
+        return self.map_msg_count > 2
 
     def set_defaults(self):
         # linear speed parameters
@@ -133,10 +130,12 @@ class MoveParent(Node):
 
     # handle the goal by parsing the move_spec
     def goal_callback(self, goal_request):
-        if (not self.is_odom_started()):
-            # odom not started - return abort
-            self.get_logger().error('Goal rejected - odometry not running')
-            return GoalResponse.REJECT
+        # start the subscribers, which should only run when an action is requested,
+        # on account of the horrendous load they place on a cpu, then delay to let
+        # messages start flowing
+        self.odom_sub = self.create_subscription(Odometry, 'odom', self.odom_callback, 10)
+        self.map_sub = self.create_subscription(PoseStamped, 'map', self.map_callback, 10)
+
         # parse the move_spec specified in the goal
         if (self.parse_argv(goal_request.move_spec) < 0):
             # parsing args failed - return abort
@@ -162,6 +161,7 @@ class MoveParent(Node):
     # the action-execute callback
     def action_exec_cb(self, goal_handle):
         self.get_logger().info('{} action_exec_cb called'.format(self.action_name))
+
         self._goal_handle = goal_handle
         move_results = []
         self.action_complete = False
@@ -180,7 +180,11 @@ class MoveParent(Node):
         while (rclpy.ok() and not self.action_complete):
             time.sleep(0.1)
 
+        # destroy the resources that consume cpu after the action is finished
         self.destroy_timer(self.run_loop_timer)
+        self.destroy_subscription(self.odom_sub)
+        self.destroy_subscription(self.map_sub)
+
         goal_handle.succeed()
 
         move_result = Move.Result()
