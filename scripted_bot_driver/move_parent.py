@@ -5,6 +5,7 @@ This is the parent class of several move child classes.
 It provides support commont to all the move classes
 '''
 import time
+import numpy as np
 
 import rclpy
 import math
