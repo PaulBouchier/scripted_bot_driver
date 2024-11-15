@@ -96,14 +96,14 @@ class MoveParent(Node):
         self.odom_msg_count += 1
     
     def is_odom_started(self):
-        return self.odom_msg_count > 2
+        return self.odom_msg_count > 0
 
     def map_callback(self, map_msg):
         self.map = map_msg
         self.map_msg_count += 1
     
     def is_map_started(self):
-        return self.map_msg_count > 2
+        return self.map_msg_count > 0
 
     def set_defaults(self):
         # linear speed parameters
