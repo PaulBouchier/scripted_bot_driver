@@ -20,6 +20,8 @@ class Seek2Cone(MoveParent):
     def __init__(self):
         super().__init__('seek2cone')
 
+        self.bumper_pressed = False
+
         # subscriber to robot PlatformData
         self.subscription = self.create_subscription(
             PlatformData, 'platform_data', self.platform_data_cb, 10)
@@ -51,13 +53,13 @@ class Seek2Cone(MoveParent):
             self.distance = float(argv[0])  # max distance to seek
             self.debug_msg.distance = self.distance
             if self.distance < 0:
-                self.distance = -self.distance  # distance is always +ve
-                self.speed = -self.speed        # go backward
+                self.get_logger().error('distance for seek2conde must be positive: {}'.format(argv))
+                return -1
 
-            # a supplied speed argument overrides everything
+            # a supplied low_speed argument overrides everything
             if len(argv) == 2:
-                self.speed = float(argv[1])
-                self.get_logger().info('Using supplied speed {}'.format(self.speed))
+                self.low_speed = float(argv[1])
+                self.get_logger().info('Using supplied speed {}'.format(self.low_speed))
         except ValueError:
             self.get_logger().error('Invalid argument given: {}'.format(argv))
             return -1
@@ -74,7 +76,7 @@ class Seek2Cone(MoveParent):
         if self.run_once:
             self.initial_x = self.odom.pose.pose.position.x
             self.initial_y = self.odom.pose.pose.position.y
-            self.get_logger().info('seek cone for max {} m at speed: {}'.format(self.distance, self.speed))
+            self.get_logger().info('seek cone for max {} m at speed: {}'.format(self.distance, self.low_speed))
             self.get_logger().info('Initial X-Y: {} {}'.format(self.initial_x, self.initial_y))
             self.debug_msg.initial_x = self.initial_x
             self.debug_msg.initial_y = self.initial_y
@@ -90,12 +92,12 @@ class Seek2Cone(MoveParent):
             self.get_logger().info('traveled: {} m'.format(self.delta_odom))
             return True
 
-        # accelerate to full speed
-        self.send_move_cmd(self.slew_vel(self.speed), self.slew_rot(0.0))
+        # accelerate to low speed
+        self.send_move_cmd(self.slew_vel(self.low_speed), self.slew_rot(0.0))
         
         # publish debug data
         self.debug_msg.delta_odom = self.delta_odom
-        self.debug_msg.speed = self.speed
+        self.debug_msg.speed = self.low_speed
         self.debug_msg.commanded_linear = self.commandedLinear
         self.debug_msg.commanded_angular = self.commandedAngular
         self.debug_pub.publish(self.debug_msg)
