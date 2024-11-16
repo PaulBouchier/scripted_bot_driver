@@ -12,6 +12,7 @@ import math
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.duration import Duration
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
@@ -131,22 +132,37 @@ class MoveParent(Node):
 
     # handle the goal by parsing the move_spec
     def goal_callback(self, goal_request):
-        # start the subscribers, which should only run when an action is requested,
-        # on account of the horrendous load they place on a cpu, then delay to let
-        # messages start flowing
-        self.odom_sub = self.create_subscription(Odometry, 'odom', self.odom_callback, 10)
-        self.map_sub = self.create_subscription(PoseStamped, 'map', self.map_callback, 10)
-
         # parse the move_spec specified in the goal
         if (self.parse_argv(goal_request.move_spec) < 0):
             # parsing args failed - return abort
             self.get_logger().error('action failed parsing move_spec')
             return GoalResponse.REJECT
-        else:
-            return GoalResponse.ACCEPT
+
+        # start the subscribers, which should only run when an action is requested,
+        # on account of the horrendous load they place on a cpu, then delay to let
+        # messages start flowing
+        self.odom_msg_count = 0
+        self.map_msg_count = 0
+        odom_cb_group = MutuallyExclusiveCallbackGroup()
+        map_cb_group = MutuallyExclusiveCallbackGroup()
+        self.odom_sub = self.create_subscription(Odometry, 'odom', self.odom_callback,
+                                                 10, callback_group=odom_cb_group)
+        self.map_sub = self.create_subscription(PoseStamped, 'map', self.map_callback,
+                                                10, callback_group=map_cb_group)
+
+        rate = self.create_rate(2)
+        while (rclpy.ok() and self.odom_msg_count == 0 and self.map_msg_count == 0):
+            self.get_logger().info('goal_callback() waiting for odom & map to start')
+            rate.sleep()
+
+        self.destroy_rate(rate)
+
+        return GoalResponse.ACCEPT
 
     # timer callback to call run() in the subclass until done
     def action_run_cb(self):
+        if (self.action_complete):
+            return  # action_exec_cb hasn't stopped the run timer yet
         if (self.run()):
             # subclass returned true to indicate action is complete
             self.action_complete = True  # indicate to action_exec_cb that action is complete
@@ -168,20 +184,23 @@ class MoveParent(Node):
         self.action_complete = False
         self.loop_count = 0
         self.feedback_period = 10    # give feedback every this-many loops
-
+        timer_cb_group = MutuallyExclusiveCallbackGroup()
 
         # set commanded linear/angular from current linear/angular to pick up current vel from which to slew
         self.commandedLinear = self.odom.twist.twist.linear.x
         self.commandedAngular = self.odom.twist.twist.angular.z
 
         # start the run_loop_timer calling run() in the subclass
-        self.run_loop_timer = self.create_timer(1.0/loop_rate, self.action_run_cb)
+        self.run_loop_timer = self.create_timer(1.0/loop_rate, self.action_run_cb, callback_group=timer_cb_group)
 
         # let the action_run callback loop perform the move until it indicates complete
+        rate = self.create_rate(10)
         while (rclpy.ok() and not self.action_complete):
-            time.sleep(0.1)
+            # self.get_logger().info('action_exec_cb() waiting for action to complete')
+            rate.sleep()
 
         # destroy the resources that consume cpu after the action is finished
+        self.destroy_rate(rate)
         self.destroy_timer(self.run_loop_timer)
         self.destroy_subscription(self.odom_sub)
         self.destroy_subscription(self.map_sub)
