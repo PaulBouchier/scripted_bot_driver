@@ -29,7 +29,7 @@ class DriveWaypoints(MoveParent):
         self.debug_msg = WaypointsDebug()
         self.debug_pub = self.create_publisher(WaypointsDebug, 'waypoints_debug', 10)
 
-        self.start_action_server()
+        self.create_action_server('drive_waypoints')
 
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
@@ -42,7 +42,7 @@ class DriveWaypoints(MoveParent):
         self.set_defaults()
 
         if (len(argv) < 2):
-            self.get_logger().fatal('Incorrrect number of args given to DriveWaypoints: {}'.format(len(argv)))
+            self.get_logger().fatal('Incorrect number of args given to DriveWaypoints: {}'.format(len(argv)))
             return -1
 
         while (len(argv) >= (num_points + 2)):
@@ -194,9 +194,6 @@ class DriveWaypoints(MoveParent):
         if angle < -pi:
             angle += 2 * pi
         return angle
-
-    def start_action_server(self):
-        self.create_action_server('drive_waypoints')
 
     def get_feedback(self):
         target_x, target_y = self.target_list[self.current_target].get_xy()

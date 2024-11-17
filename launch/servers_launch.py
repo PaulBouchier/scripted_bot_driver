@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     return LaunchDescription([
@@ -43,6 +44,11 @@ def generate_launch_description():
             executable='seek2cone',
             name='seek2cone',
             output='screen',
-            emulate_tty=True
+            emulate_tty=True,
+            parameters= [{
+                    'speed_default_param':          0.15,
+                    'low_speed_default_param':      0.15,
+                    'rot_speed_default_param':      0.6
+            }]
         )
     ])
