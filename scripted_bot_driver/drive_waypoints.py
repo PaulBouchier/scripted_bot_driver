@@ -211,12 +211,12 @@ def main():
     rclpy.init()
     nh = DriveWaypoints()
 
-    # Use a MultiThreadedExecutor to enable processing goals concurrently
-    executor = MultiThreadedExecutor()
-    rclpy.spin(nh, executor=executor)
-
-    nh.destroy_node()
-    rclpy.shutdown()
+    try:
+        # Use a MultiThreadedExecutor to enable processing goals concurrently
+        executor = MultiThreadedExecutor()
+        rclpy.spin(nh, executor=executor)
+    except KeyboardInterrupt:
+        print("Shutting down after KeyboardInterrupt")
 
 if __name__ == '__main__':
     main()
