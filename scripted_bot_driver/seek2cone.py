@@ -115,7 +115,7 @@ class Seek2Cone(MoveParent):
                 self.aim = False
         else:
             if (self.navigate_target(target_x, target_y)):
-            return True     # if we reach target and no bumper and haven't exceeded max dist, call it done
+                return True     # if we reach target and no bumper and haven't exceeded max dist, call it done
 
         return False
 
