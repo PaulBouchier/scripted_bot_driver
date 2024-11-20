@@ -125,13 +125,13 @@ class DriveWaypoints(MoveParent):
             angular = self.slew_rot(0.0)
         else:
             if (self.bearing > angular_control_zone):
-                angular = self.slew_rot(self.rot_speed)
+                angular = self.rot_speed
             elif (self.bearing > dead_zone):
-                angular = self.slew_rot(self.low_rot_speed)
+                angular = self.low_rot_speed
             elif (self.bearing < -angular_control_zone):
-                angular = self.slew_rot(-self.rot_speed)
+                angular = -self.rot_speed
             elif (self.bearing < -dead_zone):
-                angular = self.slew_rot(-self.low_rot_speed)
+                angular = -self.low_rot_speed
 
         # set linear speed, slow down on approach
         if self.distance < downramp:
@@ -143,9 +143,10 @@ class DriveWaypoints(MoveParent):
         else:
             speed = self.speed
 
-        self.get_logger().debug('navigate_target set speed to linear: {:.02f} angular: {:.02f}'.format(
+        self.get_logger().debug('navigate_target() set speed to linear: {:.02f} angular: {:.02f}'.format(
             speed, angular))
         self.send_move_cmd(self.slew_vel(speed), self.slew_rot(angular))
+        return False
 
     def target_vector(self, target_x, target_y, distance):
         self.get_logger().debug('Entered target_vector({}, {}, {})'.format(

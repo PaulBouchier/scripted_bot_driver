@@ -94,12 +94,14 @@ class Seek2Cone(MoveParent):
             self.delta_odom = 0.0       # how far we've traveled seeking cone
             self.initial_x = self.odom.pose.pose.position.x
             self.initial_y = self.odom.pose.pose.position.y
+            self.aim = True
  
             at_target, self.distance, self.bearing = self.target_vector(target_x, target_y, self.distance)
 
             self.get_logger().info('Seek cone at: [{}, {}] distance: {:.02f} bearing: {:.02f}, at_target: {}'.format(
                 target_x, target_y, self.distance, self.bearing, at_target))
             self.initial_distance = self.distance
+            self.initial_bearing = self.bearing
             self.run_once = False
 
         # Check end conditions
@@ -108,9 +110,34 @@ class Seek2Cone(MoveParent):
             self.get_logger().info('traveled: {} m'.format(self.delta_odom))
             return True
 
-        if self.navigate_target(target_x, target_y):
+        if (self.aim):
+            if (self.back_and_aim(target_x, target_y)):  # initially, back up and aim at the cone. True return when aimed
+                self.aim = False
+        else:
+            if (self.navigate_target(target_x, target_y)):
             return True     # if we reach target and no bumper and haven't exceeded max dist, call it done
 
+        return False
+
+    def back_and_aim(self, target_x, target_y):
+        speed = -self.low_speed  # drive backwards slowly while rotating to aim at cone
+        angular = 0.0
+
+        at_target, self.distance, self.bearing = self.target_vector(target_x, target_y, self.distance)
+
+        if (self.initial_bearing < 0.0 and self.bearing > 0.0 or self.initial_bearing > 0.0 and self.bearing < 0.0):
+            self.aim = False  # bearing changed sign from initial bearing, so we should be pointed straight at cone
+            self.send_move_cmd(0.0, 0.0)  # jam on the brakes, done with back_and_aim
+            return True
+        else:
+            if (self.bearing > 0.0):
+                angular = self.low_rot_speed
+            else:
+                angular = -self.low_rot_speed
+
+        self.get_logger().info('back_and_aim() set speed to linear: {:.02f} angular: {:.02f}'.format(
+            speed, angular))
+        self.send_move_cmd(self.slew_vel(speed), self.slew_rot(angular))
         return False
 
     def navigate_target(self, target_x, target_y):
@@ -135,13 +162,13 @@ class Seek2Cone(MoveParent):
             angular = self.slew_rot(0.0)
         else:
             if (self.bearing > angular_control_zone):
-                angular = self.slew_rot(self.rot_speed)
+                angular = self.rot_speed
             elif (self.bearing > dead_zone):
-                angular = self.slew_rot(self.low_rot_speed)
+                angular = self.low_rot_speed
             elif (self.bearing < -angular_control_zone):
-                angular = self.slew_rot(-self.rot_speed)
+                angular = -self.rot_speed
             elif (self.bearing < -dead_zone):
-                angular = self.slew_rot(-self.low_rot_speed)
+                angular = -self.low_rot_speed
 
         # set linear speed, slow down on approach
         if self.distance < downramp:
@@ -153,9 +180,10 @@ class Seek2Cone(MoveParent):
         else:
             speed = self.speed
 
-        self.get_logger().debug('navigate_target set speed to linear: {:.02f} angular: {:.02f}'.format(
+        self.get_logger().info('navigate_target() set speed to linear: {:.02f} angular: {:.02f}'.format(
             speed, angular))
         self.send_move_cmd(self.slew_vel(speed), self.slew_rot(angular))
+        return False
 
     def target_vector(self, target_x, target_y, distance):
         self.get_logger().debug('Entered target_vector({}, {}, {})'.format(
