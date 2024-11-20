@@ -135,7 +135,7 @@ class Seek2Cone(MoveParent):
             else:
                 angular = -self.low_rot_speed
 
-        self.get_logger().info('back_and_aim() set speed to linear: {:.02f} angular: {:.02f}'.format(
+        self.get_logger().debug('back_and_aim() set speed to linear: {:.02f} angular: {:.02f}'.format(
             speed, angular))
         self.send_move_cmd(self.slew_vel(speed), self.slew_rot(angular))
         return False
@@ -180,7 +180,7 @@ class Seek2Cone(MoveParent):
         else:
             speed = self.speed
 
-        self.get_logger().info('navigate_target() set speed to linear: {:.02f} angular: {:.02f}'.format(
+        self.get_logger().debug('navigate_target() set speed to linear: {:.02f} angular: {:.02f}'.format(
             speed, angular))
         self.send_move_cmd(self.slew_vel(speed), self.slew_rot(angular))
         return False
