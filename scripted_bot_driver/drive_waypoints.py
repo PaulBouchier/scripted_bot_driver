@@ -160,6 +160,10 @@ class DriveWaypoints(MoveParent):
         euler_angles = self.euler_from_quaternion(self.map.pose.orientation)
         heading = self.normalize(euler_angles[2])
 
+        # get heading from /odom
+        euler_angles = self.euler_from_quaternion(self.odom.pose.pose.orientation)
+        compass_heading = self.normalize(euler_angles[2])
+
         # from dpa page: target_angle = (90 - (atan2(yd,xd)*(180/PI))) - (heading*(180/PI));
         bearing = atan2(y_dist, x_dist) - heading
         bearing_normalized = self.normalize(bearing)
@@ -177,6 +181,8 @@ class DriveWaypoints(MoveParent):
         self.debug_msg.distance = distance
         self.debug_msg.bearing = bearing
         self.debug_msg.bearing_normalized = bearing_normalized
+        self.debug_msg.heading = heading
+        self.debug_msg.compass_heading = compass_heading
         self.debug_pub.publish(self.debug_msg)
 
 
@@ -188,13 +194,6 @@ class DriveWaypoints(MoveParent):
             return True
         else:
             return False
-
-    def normalize(self, angle):     # normalize angle to +/- pi
-        if angle > pi:
-            angle -= 2 * pi
-        if angle < -pi:
-            angle += 2 * pi
-        return angle
 
     def get_feedback(self):
         target_x, target_y = self.target_list[self.current_target].get_xy()

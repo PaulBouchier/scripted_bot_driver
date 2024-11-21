@@ -9,6 +9,7 @@ import numpy as np
 
 import rclpy
 import math
+from math import pi
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.duration import Duration
@@ -278,6 +279,13 @@ class MoveParent(Node):
         yaw_z = math.atan2(t3, t4)
      
         return [roll_x, pitch_y, yaw_z] # in radians
+
+    def normalize(self, angle):     # normalize angle to +/- pi
+        if angle > pi:
+            angle -= 2 * pi
+        if angle < -pi:
+            angle += 2 * pi
+        return angle
 
 def main(args=None):
     rclpy.init()

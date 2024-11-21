@@ -2,7 +2,7 @@
 
 import sys
 import time
-from math import pow, sqrt
+from math import pow, sqrt, atan2, pi
 
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
@@ -72,7 +72,14 @@ class DriveStraightMap(MoveParent):
 
         if (self.delta_map > self.distance):
             self.send_move_cmd(0.0, 0.0)  # traveled required distance, slam on the brakes
-            self.get_logger().info('traveled: {} m'.format(self.delta_map))
+            heading = atan2(delta_y, delta_x)
+
+            # get heading from /odom
+            euler_angles = self.euler_from_quaternion(self.odom.pose.pose.orientation)
+            compass_heading = self.normalize(euler_angles[2])
+
+            self.get_logger().info('traveled: {:.2f} m with gps heading {:.2f} compass heading {:.2f}'.format(
+                self.delta_map, heading, compass_heading))
             return True
 
         # accelerate to full speed as long as we haven't reached the goal

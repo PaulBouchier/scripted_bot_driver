@@ -158,7 +158,10 @@ def main(args=None):
     move_client = ScriptedMover()
     move_client.parse_moves(sys.argv[1:])
     move_client.run_single_move()
-    rclpy.spin(move_client)
+    try:
+        rclpy.spin(move_client)
+    except KeyboardInterrupt:
+        print('KeyboardInterrupt - shutting down')
 
 
 if __name__ == '__main__':

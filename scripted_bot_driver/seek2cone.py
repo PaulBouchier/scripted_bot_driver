@@ -6,9 +6,10 @@ from math import pow, sqrt, pi, atan2
 
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
+from rcl_interfaces.msg import ParameterDescriptor
 
 from scripted_bot_driver.move_parent import MoveParent
-from scripted_bot_interfaces.msg import WaypointsDebug
+from scripted_bot_interfaces.msg import Seek2ConeDebug
 from robot_interfaces.msg import PlatformData
 
 '''
@@ -35,13 +36,18 @@ class Seek2Cone(MoveParent):
 
         self.bumper_pressed = False
 
+        # initialize parameters
+        self.declare_parameter('back_and_aim_param', False,
+                               ParameterDescriptor(description='Use back_and_aim strategy'))
+        self.aim = self.get_parameter('back_and_aim_param').get_parameter_value().bool_value
+
         # subscriber to robot PlatformData
         self.subscription = self.create_subscription(
             PlatformData, 'platform_data', self.platform_data_cb, 10)
         
         # Publisher for debug data
-        self.debug_msg = WaypointsDebug()
-        self.debug_pub = self.create_publisher(WaypointsDebug, 'seek2cone_debug', 10)
+        self.debug_msg = Seek2ConeDebug()
+        self.debug_pub = self.create_publisher(Seek2ConeDebug, 'seek2cone_debug', 10)
 
         # create the action server for this move-type
         self.create_action_server('seek2cone')
@@ -91,13 +97,7 @@ class Seek2Cone(MoveParent):
             self.distance = 0.0         # distance to cone waypoint
             self.bearing = 0.0          # bearing to cone waypoint
             self.stopping = False
-            self.delta_odom = 0.0       # how far we've traveled seeking cone
-            self.initial_x = self.odom.pose.pose.position.x
-            self.initial_y = self.odom.pose.pose.position.y
 
-            # set this False to disable back_and_aim()
-            self.aim = True  
- 
             at_target, self.distance, self.bearing = self.target_vector(target_x, target_y, self.distance)
 
             self.get_logger().info('Seek cone at: [{}, {}] distance: {:.02f} bearing: {:.02f}, at_target: {}'.format(
@@ -107,9 +107,8 @@ class Seek2Cone(MoveParent):
             self.run_once = False
 
         # Check end conditions
-        if (self.bumper_pressed or self.delta_odom > self.distance+1.5):
-            self.send_move_cmd(0.0, 0.0)  # hit cone or traveled max distance, slam on the brakes
-            self.get_logger().info('traveled: {} m'.format(self.delta_odom))
+        if (self.bumper_pressed or self.distance > 4.0):
+            self.send_move_cmd(0.0, 0.0)  # hit cone or traveled too far from cone, slam on the brakes
             return True
 
         if (self.aim):
@@ -126,8 +125,6 @@ class Seek2Cone(MoveParent):
         angular = 0.0
 
         at_target, self.distance, self.bearing = self.target_vector(target_x, target_y, self.distance)
-
-        self.get_logger().info(self.distance, self.initial_distance, self.bearing, self.initial_bearing)
 
         if ((self.initial_bearing < 0.0 and self.bearing > 0.0 or self.initial_bearing > 0.0 and self.bearing < 0.0)
             and (abs(self.distance - self.initial_distance) > 1.0)):
@@ -230,13 +227,6 @@ class Seek2Cone(MoveParent):
             return True
         else:
             return False
-
-    def normalize(self, angle):     # normalize angle to +/- pi
-        if angle > pi:
-            angle -= 2 * pi
-        if angle < -pi:
-            angle += 2 * pi
-        return angle
 
     def get_feedback(self):
         target_x, target_y = self.target_list[self.current_target].get_xy()
