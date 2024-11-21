@@ -94,7 +94,9 @@ class Seek2Cone(MoveParent):
             self.delta_odom = 0.0       # how far we've traveled seeking cone
             self.initial_x = self.odom.pose.pose.position.x
             self.initial_y = self.odom.pose.pose.position.y
-            self.aim = True
+
+            # set this False to disable back_and_aim()
+            self.aim = True  
  
             at_target, self.distance, self.bearing = self.target_vector(target_x, target_y, self.distance)
 
@@ -105,7 +107,7 @@ class Seek2Cone(MoveParent):
             self.run_once = False
 
         # Check end conditions
-        if (self.bumper_pressed or self.delta_odom > self.distance):
+        if (self.bumper_pressed or self.delta_odom > self.distance+1.5):
             self.send_move_cmd(0.0, 0.0)  # hit cone or traveled max distance, slam on the brakes
             self.get_logger().info('traveled: {} m'.format(self.delta_odom))
             return True
@@ -120,12 +122,15 @@ class Seek2Cone(MoveParent):
         return False
 
     def back_and_aim(self, target_x, target_y):
-        speed = -self.low_speed  # drive backwards slowly while rotating to aim at cone
+        speed = -self.speed  # drive backwards while rotating to aim at cone
         angular = 0.0
 
         at_target, self.distance, self.bearing = self.target_vector(target_x, target_y, self.distance)
 
-        if (self.initial_bearing < 0.0 and self.bearing > 0.0 or self.initial_bearing > 0.0 and self.bearing < 0.0):
+        self.get_logger().info(self.distance, self.initial_distance, self.bearing, self.initial_bearing)
+
+        if ((self.initial_bearing < 0.0 and self.bearing > 0.0 or self.initial_bearing > 0.0 and self.bearing < 0.0)
+            and (abs(self.distance - self.initial_distance) > 1.0)):
             self.aim = False  # bearing changed sign from initial bearing, so we should be pointed straight at cone
             self.send_move_cmd(0.0, 0.0)  # jam on the brakes, done with back_and_aim
             return True
