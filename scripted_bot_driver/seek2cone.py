@@ -202,6 +202,7 @@ class Seek2Cone(MoveParent):
         # get heading from /odom
         euler_angles = self.euler_from_quaternion(self.odom.pose.pose.orientation)
         compass_heading = self.normalize(euler_angles[2])
+        heading2compass_offset = heading - compass_heading
 
         # from dpa page: target_angle = (90 - (atan2(yd,xd)*(180/PI))) - (heading*(180/PI));
         bearing = atan2(y_dist, x_dist) - heading
@@ -222,6 +223,7 @@ class Seek2Cone(MoveParent):
         self.debug_msg.bearing_normalized = bearing_normalized
         self.debug_msg.heading = heading
         self.debug_msg.compass_heading = compass_heading
+        self.debug_msg.heading2compass_offset = heading2compass_offset
         self.debug_pub.publish(self.debug_msg)
 
 
