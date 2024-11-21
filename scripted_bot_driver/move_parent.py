@@ -13,7 +13,7 @@ from math import pi
 from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.duration import Duration
-from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Odometry
@@ -96,6 +96,9 @@ class MoveParent(Node):
     def odom_callback(self, odom_msg):
         self.odom = odom_msg
         self.odom_msg_count += 1
+        if self.destroy_subs:
+            self.destroy_subscription(self.odom_sub)
+
     
     def is_odom_started(self):
         return self.odom_msg_count > 0
@@ -103,6 +106,8 @@ class MoveParent(Node):
     def map_callback(self, map_msg):
         self.map = map_msg
         self.map_msg_count += 1
+        if self.destroy_subs:
+            self.destroy_subscription(self.map_sub)
     
     def is_map_started(self):
         return self.map_msg_count > 0
@@ -144,6 +149,7 @@ class MoveParent(Node):
         # messages start flowing
         self.odom_msg_count = 0
         self.map_msg_count = 0
+        self.destroy_subs = False
         odom_cb_group = MutuallyExclusiveCallbackGroup()
         map_cb_group = MutuallyExclusiveCallbackGroup()
         self.odom_sub = self.create_subscription(Odometry, 'odom', self.odom_callback,
@@ -203,13 +209,12 @@ class MoveParent(Node):
         # destroy the resources that consume cpu after the action is finished
         self.destroy_rate(rate)
         self.destroy_timer(self.run_loop_timer)
-        self.destroy_subscription(self.odom_sub)
-        self.destroy_subscription(self.map_sub)
 
         goal_handle.succeed()
 
         move_result = Move.Result()
         move_results = self.finish_cb()  # get the move results from the subclass
+        self.destroy_subs = False
         self.get_logger().info('action finished with success, results: {}'.format(move_results))
         move_result.move_results = move_results
         return move_result
@@ -227,7 +232,7 @@ class MoveParent(Node):
             goal_callback=self.goal_callback,
             #handle_accepted_callback=self.handle_accepted_callback,
             #cancel_callback=self.cancel_callback,
-            #callback_group=ReentrantCallbackGroup()
+            callback_group=ReentrantCallbackGroup()
         )
 
     def quaternion_from_euler(self, ai, aj, ak):
