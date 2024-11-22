@@ -25,7 +25,6 @@ class RotateOdom(MoveParent):
         self.alpha = 0.1  # Smoothing factor for exponential moving average
         self.commandedAngular = 0.0
         self.rot_stopping = False
-        self.run_once = True
 
         # Publisher for debug data
         self.debug_msg = RotateOdomDebug()
@@ -35,6 +34,7 @@ class RotateOdom(MoveParent):
         self.start_action_server()
 
     def parse_argv(self, argv):
+        self.run_once = True
         pargs = 0;  #parsed args count
         self.set_defaults()  # set default speeds which may then be modified by args
         
@@ -135,19 +135,20 @@ class RotateOdom(MoveParent):
             self.angular_cmd = 0.0
             self.linear_cmd  = 0.0
 
-        #  update our turn error
-        self.angle_error=self.ah.update(self.heading).radians
-        
         if self.rot_stopping:
-            if abs(self.odom.twist.twist.angular.z) < 0.01:  # wait till we've stopped
-                self.run_once = True
+            self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
+            if abs(self.odom.twist.twist.linear.x) < 0.01 and abs(self.odom.twist.twist.angular.z) < 0.01:
                 self.get_logger().info(f'rotated: {self.ah.get_cumul_degrees()} deg to heading {self.heading}')
                 return True
             else:
-                self.send_move_cmd(0.0, 0.0)  # stop immediately
+                self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
                 self.publish_debug()
-                return False
+                return False        # wait for robot to stop
 
+
+        #  update our turn error
+        self.angle_error=self.ah.update(self.heading).radians
+        
         # slow the linear & rotation speed if we're getting close
         if abs(self.angle_error) < target_close_angle:
             self.rot_speed = self.low_rot_speed

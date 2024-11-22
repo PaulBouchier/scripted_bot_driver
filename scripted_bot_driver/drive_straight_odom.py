@@ -63,7 +63,16 @@ class DriveStraightOdom(MoveParent):
             self.get_logger().info('Initial X-Y: {} {}, goal distance: {}'.format(self.initial_x, self.initial_y, self.distance))
             self.debug_msg.initial_x = self.initial_x
             self.debug_msg.initial_y = self.initial_y
+            self.stopping = False
             self.run_once = False
+
+        if self.stopping:
+            self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
+            if abs(self.odom.twist.twist.linear.x) < 0.01 and abs(self.odom.twist.twist.angular.z) < 0.01:
+                return True
+            else:
+                self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
+                return False        # wait for robot to stop
 
         delta_x = self.odom.pose.pose.position.x - self.initial_x
         delta_y = self.odom.pose.pose.position.y - self.initial_y
@@ -71,9 +80,10 @@ class DriveStraightOdom(MoveParent):
         # self.get_logger().info('delta_x: {} delta_y: {} delta_odom: {}'.format(delta_x, delta_y, self.delta_odom))
 
         if (self.delta_odom > self.distance):
-            self.send_move_cmd(0.0, 0.0)  # traveled required distance, slam on the brakes
+            self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))  # traveled required distance, slam on the brakes
+            self.stopping = True
             self.get_logger().info('traveled: {} m'.format(self.delta_odom))
-            return True
+            return False
 
         # accelerate to full speed as long as we haven't reached the goal
         self.send_move_cmd(self.slew_vel(self.speed), self.slew_rot(0.0))

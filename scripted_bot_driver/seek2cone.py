@@ -158,10 +158,19 @@ class Seek2Cone(MoveParent):
 
             self.run_once = False
 
+        if self.stopping:
+            self.send_move_cmd(0.0, 0.0)
+            if abs(self.odom.twist.twist.linear.x) < 0.01 and abs(self.odom.twist.twist.angular.z) < 0.01:
+                return True
+            else:
+                self.send_move_cmd(0.0, 0.0)
+                return False        # wait for robot to stop
+
         # Check end conditions
         if (self.bumper_pressed or self.distance > 4.0):
             self.send_move_cmd(0.0, 0.0)  # hit cone or traveled too far from cone, slam on the brakes
-            return True
+            self.stopping = True
+            return False
 
         if (self.use_oakd and self.oakd_found_cone):
             self.drive2oakd_target()
@@ -281,6 +290,7 @@ class Seek2Cone(MoveParent):
         self.debug_msg.target_x = target_x
         self.debug_msg.target_y = target_y
         self.debug_msg.at_target = at_target
+        self.debug_msg.stopping = self.stopping
         self.debug_msg.x_distance = x_dist
         self.debug_msg.y_distance = y_dist
         self.debug_msg.distance = distance

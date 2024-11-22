@@ -84,14 +84,25 @@ class DriveWaypoints(MoveParent):
             self.get_logger().info('Start driving to: [{}, {}] distance: {:.02f} bearing: {:.02f}, at_target: {}'.format(
                 target_x, target_y, self.distance, self.bearing, at_target))
             self.initial_distance = self.distance
+            self.stopping = False
             self.run_once = False
+
+        if self.stopping:
+            self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
+            if abs(self.odom.twist.twist.linear.x) < 0.01 and abs(self.odom.twist.twist.angular.z) < 0.01:
+                return True
+            else:
+                self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
+                return False        # wait for robot to stop
 
         if self.navigate_target(target_x, target_y):
             # at current_target, set current_target to next in list
             self.current_target += 1
             if self.current_target == len(self.target_list):
+                self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))  # traveled required distance, slam on the brakes
+                self.stopping = True
                 self.get_logger().info('DriveWaypoints done with target list')
-                return True         # done
+                return False
             target_x, target_y = self.target_list[self.current_target].get_xy()
             self.distance = 0
             self.run_once = True
@@ -113,6 +124,7 @@ class DriveWaypoints(MoveParent):
                 self.stopping = False
                 return True
             else:
+                self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
                 return False        # wait for robot to stop
         if at_target:
             self.get_logger().info('navigate_target found it is at target, stopping')
@@ -177,6 +189,7 @@ class DriveWaypoints(MoveParent):
         self.debug_msg.target_x = target_x
         self.debug_msg.target_y = target_y
         self.debug_msg.at_target = at_target
+        self.debug_msg.stopping = self.stopping
         self.debug_msg.x_distance = x_dist
         self.debug_msg.y_distance = y_dist
         self.debug_msg.distance = distance
