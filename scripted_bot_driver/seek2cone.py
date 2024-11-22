@@ -160,7 +160,7 @@ class Seek2Cone(MoveParent):
             return False
 
         # turn toward target if needed. Don't turn if within the error circle
-        if (self.bearing < dead_zone and self.bearing > -dead_zone) or (self.distance < err_circle):
+        if (self.bearing < dead_zone and self.bearing > -dead_zone) or (self.distance < err_circle-0.5):
             angular = self.slew_rot(0.0)
         else:
             if (self.bearing > angular_control_zone):

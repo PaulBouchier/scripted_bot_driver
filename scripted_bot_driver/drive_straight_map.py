@@ -111,7 +111,7 @@ class DriveStraightMap(MoveParent):
         self.set_defaults()
         # self.update_compass_offset()
         if (abs(self.debug_msg.heading2compass_offset) > 0.2):
-            self.get_logger().warn('ATTENTION: SET IMU CAL:\nros2 param set /esp_link imu_mount_angle_rad {0}'.format(self.debug_msg.heading2compass_offset))
+            self.get_logger().warn('ATTENTION: SET IMU CAL:\nros2 param set /esp_link imu_mount_angle_rad {:.2f}'.format(self.debug_msg.heading2compass_offset))
 
         results = [self.delta_map]
         return results
