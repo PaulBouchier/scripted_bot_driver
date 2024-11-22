@@ -41,10 +41,6 @@ class Seek2Cone(MoveParent):
                                ParameterDescriptor(description='Use back_and_aim strategy'))
         self.aim = self.get_parameter('back_and_aim_param').get_parameter_value().bool_value
 
-        # subscriber to robot PlatformData
-        self.subscription = self.create_subscription(
-            PlatformData, 'platform_data', self.platform_data_cb, 10)
-        
         # Publisher for debug data
         self.debug_msg = Seek2ConeDebug()
         self.debug_pub = self.create_publisher(Seek2ConeDebug, 'seek2cone_debug', 10)
@@ -56,6 +52,8 @@ class Seek2Cone(MoveParent):
         if (not self.bumper_pressed and msg.bumper_pressed):
             self.bumper_pressed = True  # latch bumper_pressed
             self.get_logger().info('Detected bumper pressed!!!')
+        if self.destroy_subs:
+            self.destroy_subscription(self.plat_data_sub)
 
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
@@ -81,6 +79,11 @@ class Seek2Cone(MoveParent):
 
         self.get_logger().info('Seek2Cone parsed {} points'.format(num_points))
         self.current_target = 0     # position in the list of targets
+
+        # subscribe to PlatformData
+        self.plat_data_sub = self.create_subscription(
+            PlatformData, 'platform_data', self.platform_data_cb, 10, callback_group=MutuallyExclusiveCallbackGroup())
+        
         return num_points           # return number of args consumed
 
     # run is called at the rate until it returns true. It does not stop motion on

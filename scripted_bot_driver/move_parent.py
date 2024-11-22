@@ -71,6 +71,7 @@ class MoveParent(Node):
 
         # set up action
         self.feedback_msg = Move.Feedback()
+        self.destroy_subs = False
         
     def send_move_cmd(self, linear, angular):
         self.move_cmd.linear.x = linear
@@ -214,7 +215,7 @@ class MoveParent(Node):
 
         move_result = Move.Result()
         move_results = self.finish_cb()  # get the move results from the subclass
-        self.destroy_subs = False
+        self.destroy_subs = True
         self.get_logger().info('action finished with success, results: {}'.format(move_results))
         move_result.move_results = move_results
         return move_result
