@@ -49,7 +49,8 @@ def generate_launch_description():
                     'speed_default_param':          0.15,
                     'low_speed_default_param':      0.15,
                     'rot_speed_default_param':      0.25,
-                    'back_and_aim_param': False
+                    'back_and_aim_param':           False,
+                    'use_oakd_param':               True
             }]
         )
     ])

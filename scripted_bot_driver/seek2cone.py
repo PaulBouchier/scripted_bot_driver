@@ -7,16 +7,12 @@ from math import pow, sqrt, pi, atan2
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rcl_interfaces.msg import ParameterDescriptor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_interfaces.msg import Seek2ConeDebug
-from robot_interfaces.msg import PlatformData
+from robot_interfaces.msg import PlatformData, DepthCameraSectorRanges
 
-'''
-The Seek2Cone class drives toward where it detects the cone, for a limited distance. It completes
-the action when it either detects hitting the cone (bumper pressed), or max distance reached.
-This class is derived from drive_waypoints
-'''
 
 err_circle = 1.0    # meters, distance within which we consider goal achieved
 dead_zone = pi / 90  # deadzone is +/- this for disablig angular rotation
@@ -30,16 +26,26 @@ class TargetXY():
     def get_xy(self):
         return self.target_x, self.target_y
 
+'''
+The Seek2Cone class drives toward where it detects the cone, for a limited distance. It completes
+the action when it either detects hitting the cone (bumper pressed), or max distance reached.
+This class is derived from drive_waypoints
+'''
 class Seek2Cone(MoveParent):
     def __init__(self):
         super().__init__('seek2cone')
 
         self.bumper_pressed = False
+        self.ranges_msg = DepthCameraSectorRanges()
 
         # initialize parameters
         self.declare_parameter('back_and_aim_param', False,
                                ParameterDescriptor(description='Use back_and_aim strategy'))
         self.aim = self.get_parameter('back_and_aim_param').get_parameter_value().bool_value
+
+        self.declare_parameter('use_oakd_param', False,
+                               ParameterDescriptor(description='Use oakd lite range data to seek to cone'))
+        self.use_oakd = self.get_parameter('use_oakd_param').get_parameter_value().bool_value
 
         # Publisher for debug data
         self.debug_msg = Seek2ConeDebug()
@@ -49,11 +55,44 @@ class Seek2Cone(MoveParent):
         self.create_action_server('seek2cone')
 
     def platform_data_cb(self, msg):
+        if self.destroy_subs:
+            self.destroy_subscription(self.plat_data_sub)
         if (not self.bumper_pressed and msg.bumper_pressed):
             self.bumper_pressed = True  # latch bumper_pressed
             self.get_logger().info('Detected bumper pressed!!!')
+
+    def oakd_range_cb(self, msg):
         if self.destroy_subs:
-            self.destroy_subscription(self.plat_data_sub)
+            self.destroy_subscription(self.depth_ranges_sub)
+            return
+
+        min_avg_detection_diff = 0.5
+        max_detection_range = 1.7
+
+        ranges_sum = 0.0
+        ranges_cnt = 0
+        min_range_cnt = 0
+        if (msg.min_range == 0.0):
+            return  # we get several empty messages at the outset. Why???
+        for r in msg.sector_ranges:
+            ranges_sum += r
+            ranges_cnt += 1
+            if r < msg.min_range + 0.10:
+                min_range_cnt += 1  # count how many ROIs have a range close to the minimum
+        avg_range = ranges_sum / ranges_cnt
+
+        if (msg.min_range < (avg_range - min_avg_detection_diff) and msg.min_range < max_detection_range):
+            self.oakd_found_cone = True  # min range is well less than average and less than the criterion limit
+            self.oakd_bearing = msg.min_range_rad
+            self.debug_msg.oakd_found_cone = True
+            self.debug_msg.avg_oakd_range = avg_range
+            self.debug_msg.min_range_cnt = min_range_cnt
+            self.get_logger().info('avg range: {:.2f} min_cnt: {} min_range: {:.2f} bearing: {:.2f}'.format(
+                avg_range, min_range_cnt, msg.min_range, msg.min_range_rad))
+        else:
+            self.oakd_found_cone = False
+            self.debug_msg.oakd_found_cone = False
+            self.get_logger().info('No cone found')
 
     def parse_argv(self, argv):
         self.get_logger().info('parsing move_spec {}'.format(argv))
@@ -80,9 +119,15 @@ class Seek2Cone(MoveParent):
         self.get_logger().info('Seek2Cone parsed {} points'.format(num_points))
         self.current_target = 0     # position in the list of targets
 
-        # subscribe to PlatformData
+        # subscribe to PlatformData for bumperPressed
         self.plat_data_sub = self.create_subscription(
-            PlatformData, 'platform_data', self.platform_data_cb, 10, callback_group=MutuallyExclusiveCallbackGroup())
+            PlatformData, 'platform_data', self.platform_data_cb, 10,
+            callback_group=MutuallyExclusiveCallbackGroup())
+
+        # subscribe to ranges for oak-D Lite range data for ROIs
+        self.depth_ranges_sub = self.create_subscription(
+            DepthCameraSectorRanges, 'depth_ranges', self.oakd_range_cb, 10,
+            callback_group=MutuallyExclusiveCallbackGroup())
         
         return num_points           # return number of args consumed
 
@@ -107,6 +152,10 @@ class Seek2Cone(MoveParent):
                 target_x, target_y, self.distance, self.bearing, at_target))
             self.initial_distance = self.distance
             self.initial_bearing = self.bearing
+
+            self.oakd_found_cone = False
+            self.oakd_bearing = 0.0
+
             self.run_once = False
 
         # Check end conditions
@@ -114,7 +163,9 @@ class Seek2Cone(MoveParent):
             self.send_move_cmd(0.0, 0.0)  # hit cone or traveled too far from cone, slam on the brakes
             return True
 
-        if (self.aim):
+        if (self.use_oakd and self.oakd_found_cone):
+            self.drive2oakd_target()
+        elif (self.aim):
             if (self.back_and_aim(target_x, target_y)):  # initially, back up and aim at the cone. True return when aimed
                 self.aim = False
         else:
@@ -122,6 +173,17 @@ class Seek2Cone(MoveParent):
                 return True     # if we reach target and no bumper and haven't exceeded max dist, call it done
 
         return False
+
+    def drive2oakd_target(self):
+        if (self.oakd_bearing > 0.05):
+            angular = self.low_rot_speed
+        elif (self.oakd_bearing < -0.05):
+            angular = -self.low_rot_speed
+        else:
+            angular = 0.0
+
+        self.send_move_cmd(self.slew_vel(self.speed), self.slew_rot(angular))
+        return
 
     def back_and_aim(self, target_x, target_y):
         speed = -self.speed  # drive backwards while rotating to aim at cone
