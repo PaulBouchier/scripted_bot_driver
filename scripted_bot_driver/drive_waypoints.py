@@ -81,6 +81,7 @@ class DriveWaypoints(MoveParent):
         if self.run_once:
             at_target, self.distance, self.bearing = self.target_vector(target_x, target_y, self.distance)
 
+            # self.print()
             self.get_logger().info('Start driving to: [{}, {}] distance: {:.02f} bearing: {:.02f}, at_target: {}'.format(
                 target_x, target_y, self.distance, self.bearing, at_target))
             self.initial_distance = self.distance
@@ -119,18 +120,10 @@ class DriveWaypoints(MoveParent):
         angular = 0.0
 
         at_target, self.distance, self.bearing = self.target_vector(target_x, target_y, self.distance)
-        if self.stopping:
-            if self.odom.twist.twist.linear.x < 0.01 and self.odom.twist.twist.angular.z < 0.01:
-                self.stopping = False
-                return True
-            else:
-                self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
-                return False        # wait for robot to stop
         if at_target:
             self.get_logger().info('navigate_target found it is at target, stopping')
             self.send_move_cmd(self.slew_vel(0.0), self.slew_rot(0.0))
-            self.stopping = True
-            return False
+            return True
 
         # turn toward target if needed. Don't turn if within the error circle
         if (self.bearing < dead_zone and self.bearing > -dead_zone) or (self.distance < err_circle):
