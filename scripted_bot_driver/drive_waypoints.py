@@ -6,11 +6,12 @@ from math import sqrt, pow, pi, atan2
 
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
+from rcl_interfaces.msg import ParameterDescriptor
 
 from scripted_bot_driver.move_parent import MoveParent
 from scripted_bot_interfaces.msg import WaypointsDebug
 
-err_circle = 1.0    # meters, distance within which we consider goal achieved
+err_circle_default = 1.0    # meters, distance within which we consider goal achieved
 dead_zone = pi / 90  # deadzone is +/- this for disablig angular rotation
 angular_control_zone = pi / 6.0  # modulate angular velocity according to error inside the control zone
 downramp = 0.75       # downramp is distance at which speed is reduced to slow
@@ -26,6 +27,10 @@ class DriveWaypoints(MoveParent):
     def __init__(self):
         super().__init__('drive_waypoints')
 
+        self.declare_parameter('err_circle_param', err_circle_default,
+                               ParameterDescriptor(description='distance within which we consider goal achieved'))
+        self.err_circle = self.get_parameter('err_circle_param').value
+        self.get_logger().info('DriveWaypoints err_circle: {}'.format(self.err_circle))
         self.debug_msg = WaypointsDebug()
         self.debug_pub = self.create_publisher(WaypointsDebug, 'waypoints_debug', 10)
 
@@ -126,7 +131,7 @@ class DriveWaypoints(MoveParent):
             return True
 
         # turn toward target if needed. Don't turn if within the error circle
-        if (self.bearing < dead_zone and self.bearing > -dead_zone) or (self.distance < err_circle):
+        if (self.bearing < dead_zone and self.bearing > -dead_zone) or (self.distance < self.err_circle):
             angular = self.slew_rot(0.0)
         else:
             if (self.bearing > angular_control_zone):
@@ -198,7 +203,7 @@ class DriveWaypoints(MoveParent):
 
     def target_acquired(self, distance, last_distance):
         self.get_logger().debug('Entered target_acquired({}, {}'.format(distance, last_distance))
-        if (distance < err_circle and distance > last_distance): 
+        if (distance < self.err_circle and distance > last_distance): 
             return True
         else:
             return False

@@ -30,6 +30,7 @@ vel_slew_rate_default = 0.5 / loop_rate  # m/s^2 per loop
 rot_speed_default = math.pi/10    # rotating speed, rad/s - 10 sec per revolution
 low_rot_speed_default = rot_speed_default/3
 rot_slew_rate_default = (rot_speed_default * 3) / loop_rate  # rad/s^2 per loop - slew in 1/3 sec
+map_pose_topic_default = 'map'
 
 class MoveParent(Node):
 
@@ -50,6 +51,10 @@ class MoveParent(Node):
                                ParameterDescriptor(description='Default rotational low speed, rad/s'))
         self.declare_parameter('rot_slew_rate_default_param', rot_slew_rate_default,
                                ParameterDescriptor(description='Default rotational slew rate, rad/s^2 per tick'))
+        self.declare_parameter('map_pose_topic_param', map_pose_topic_default,
+                               ParameterDescriptor(description='Topic for pose in map frame'))
+        self.map_pose_topic = self.get_parameter('map_pose_topic_param').get_parameter_value().string_value
+        self.get_logger().info('map_pose_topic: {}'.format(self.map_pose_topic))
 
         # initialize class members
         self.set_defaults()
@@ -155,12 +160,12 @@ class MoveParent(Node):
         map_cb_group = MutuallyExclusiveCallbackGroup()
         self.odom_sub = self.create_subscription(Odometry, 'odom', self.odom_callback,
                                                  10, callback_group=odom_cb_group)
-        self.map_sub = self.create_subscription(PoseStamped, 'map', self.map_callback,
+        self.map_sub = self.create_subscription(PoseStamped, self.map_pose_topic, self.map_callback,
                                                 10, callback_group=map_cb_group)
 
         rate = self.create_rate(2)
         while (rclpy.ok() and self.odom_msg_count == 0 and self.map_msg_count == 0):
-            self.get_logger().info('goal_callback() waiting for odom & map to start')
+            self.get_logger().info('goal_callback() waiting for odom & map (on {}) to start'.format(self.map_pose_topic))
             rate.sleep()
 
         self.destroy_rate(rate)
