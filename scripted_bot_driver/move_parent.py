@@ -54,21 +54,8 @@ class MoveParent(Node):
         self.declare_parameter('map_pose_topic_param', map_pose_topic_default,
                                ParameterDescriptor(description='Topic for pose in map frame'))
 
-        # linear speed parameters
-        self.speed = self.get_parameter('speed_default_param').get_parameter_value().double_value
-        self.full_speed = self.speed
-        self.low_speed = self.get_parameter('low_speed_default_param').get_parameter_value().double_value
-        self.vel_slew_rate = self.get_parameter('vel_slew_rate_default_param').get_parameter_value().double_value
-        # self.get_logger().info('Linear speed parameter: {:0.2f} m/s'.format(self.speed))
-
-        # rotational speed parameters
-        self.rot_speed = self.get_parameter('rot_speed_default_param').get_parameter_value().double_value
-        self.full_rot_speed = self.rot_speed
-        self.low_rot_speed = self.get_parameter('low_rot_speed_default_param').get_parameter_value().double_value
-        self.rot_slew_rate = self.get_parameter('rot_slew_rate_default_param').get_parameter_value().double_value
-
-        self.map_pose_topic = self.get_parameter('map_pose_topic_param').get_parameter_value().string_value
-        self.get_logger().info('map_pose_topic: {}'.format(self.map_pose_topic))
+        # set the default values
+        self.set_defaults()
 
         # initialize class members
         self.commandedLinear = 0.0
@@ -90,7 +77,25 @@ class MoveParent(Node):
         # set up action
         self.feedback_msg = Move.Feedback()
         self.destroy_subs = False
-        
+
+    def set_defaults(self):
+        # linear speed parameters
+        self.speed = self.get_parameter('speed_default_param').get_parameter_value().double_value
+        self.full_speed = self.speed
+        self.low_speed = self.get_parameter('low_speed_default_param').get_parameter_value().double_value
+        self.vel_slew_rate = self.get_parameter('vel_slew_rate_default_param').get_parameter_value().double_value
+        # self.get_logger().info('Linear speed parameter: {:0.2f} m/s'.format(self.speed))
+
+        # rotational speed parameters
+        self.rot_speed = self.get_parameter('rot_speed_default_param').get_parameter_value().double_value
+        self.full_rot_speed = self.rot_speed
+        self.low_rot_speed = self.get_parameter('low_rot_speed_default_param').get_parameter_value().double_value
+        self.rot_slew_rate = self.get_parameter('rot_slew_rate_default_param').get_parameter_value().double_value
+
+        # map pose topic
+        self.map_pose_topic = self.get_parameter('map_pose_topic_param').get_parameter_value().string_value
+        self.get_logger().info('map_pose_topic: {}'.format(self.map_pose_topic))
+
     def send_move_cmd(self, linear, angular):
         self.move_cmd.linear.x = linear
         self.move_cmd.angular.z = angular

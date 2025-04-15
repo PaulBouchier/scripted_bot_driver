@@ -78,7 +78,8 @@ class DriveWaypoints(MoveParent):
             return True
 
         if self.current_target == len(self.target_list):
-            self.get_logger().fatal('DriveWaypoints.run() called with empty list - exiting')
+            self.send_move_cmd(0.0, 0.0)  # stop
+            self.get_logger().info('DriveWaypoints.run() done with target list')
             return True         # done
 
         target_x, target_y = self.target_list[self.current_target].get_xy()
