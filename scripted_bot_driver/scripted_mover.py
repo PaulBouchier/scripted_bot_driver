@@ -26,6 +26,7 @@ class ScriptedMover(Node):
         self.rotate_odom_client = ActionClient(self, Move, 'rotate_odom')
         self.drive_waypoints_client = ActionClient(self, Move, 'drive_waypoints')
         self.seek2cone_client = ActionClient(self, Move, 'seek2cone')
+        self.seek2can_client = ActionClient(self, Move, 'seek2can')
 
         self.action_complete = False
 
@@ -33,7 +34,7 @@ class ScriptedMover(Node):
         current_arg = 0
         self.single_moves = []
         self.current_single_move = 0
-        supported_moves = ['stop', 'movo', 'movm', 'roto', 'drive_waypoints', 'seek2cone']
+        supported_moves = ['stop', 'movo', 'movm', 'roto', 'drive_waypoints', 'seek2cone', 'seek2can']
 
         print('argv: {}'.format(argv))
         while current_arg != len(argv):
@@ -50,6 +51,8 @@ class ScriptedMover(Node):
                 move_type = 'drive_waypoints'
             elif argv[current_arg] == 'seek2cone':
                 move_type = 'seek2cone'
+            elif argv[current_arg] == 'seek2can':
+                move_type = 'seek2can'
             else:
                 self.get_logger().fatal('Error - unknown move type {}'.format(argv[current_arg]))
                 rclpy.shutdown()
@@ -95,6 +98,9 @@ class ScriptedMover(Node):
         elif(single_move.move_type == 'seek2cone'):
                 self.send_goal(self.seek2cone_client, single_move.move_spec)
                 self.get_logger().info('sent seek2cone goal')
+        elif(single_move.move_type == 'seek2can'):
+                self.send_goal(self.seek2can_client, single_move.move_spec)
+                self.get_logger().info('sent seek2can goal')
         else:
             self.get_logger().fatal('ERROR: requested to run unsupported move {}'.format(single_move.move_type))
             rclpy.shutdown()
@@ -144,6 +150,7 @@ def usage():
     print('movo <distance> [speed] - drive straight for <distance> meters using odometry')
     print('movm <distance> [speed] - drive straight for <distance> meters using map nav')
     print('seek2cone <max_distance> [speed] - seek cone for <max_distance> meters')
+    print('seek2can <max_distance> - seek can for <max_distance> meters')
     print('roto <target_angle>[d|p] <mode> [angular_speed][d]  [drive_speed] - rotate <angle> radians, or pi*<target_angle> if [p] or degrees if [d], +angle is CCW., mode 1  (default) is shortest_path, mode 2 is strict. Angular speed, if given, allows same modifiers as target_angle.  Drive speed if given is in meters per second, defaults to zero.')
     print('drive_waypoints <target_x> <target_y> [ more_targets ] - drive to a list of targets')
     print('stop [delay]- ramp linear and rotational speed down to 0 with optional pause at end')
