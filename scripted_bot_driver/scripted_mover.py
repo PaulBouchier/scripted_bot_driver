@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 
+#!/usr/bin/env python
+
 import sys
-import time
+import time # Keep time if needed for delays between moves
 
 import rclpy
-from rclpy.action import ActionClient
+# from rclpy.action import ActionClient # No longer needed here
 from rclpy.node import Node
 
-from scripted_bot_interfaces.action import Move
+from scripted_bot_interfaces.action import Move # Keep for SingleMoveDescriptor if it uses it, otherwise remove
+# Import the new client
+from .single_move_client import SingleMoveClient
 
 class SingleMoveDescriptor():
     def __init__(self, move_type, move_spec):
@@ -18,19 +22,18 @@ class SingleMoveDescriptor():
 
 
 class ScriptedMover(Node):
+    """
+    Node to parse command-line arguments into a sequence of moves
+    and execute them sequentially using SingleMoveClient.
+    """
     def __init__(self):
-        super().__init__('scripted_mover_client')
-        self.stop_client = ActionClient(self, Move, 'stop')
-        self.drive_straight_client = ActionClient(self, Move, 'drive_straight_odom')
-        self.drive_straight_map_client = ActionClient(self, Move, 'drive_straight_map')
-        self.rotate_odom_client = ActionClient(self, Move, 'rotate_odom')
-        self.drive_waypoints_client = ActionClient(self, Move, 'drive_waypoints')
-        self.seek2cone_client = ActionClient(self, Move, 'seek2cone')
-        self.seek2can_client = ActionClient(self, Move, 'seek2can')
-
-        self.action_complete = False
+        super().__init__('scripted_mover') # Node name can be simpler now
+        # Instantiate the reusable move client, passing this node
+        self.move_client = SingleMoveClient(self)
+        self.single_moves = [] # Initialize move list
 
     def parse_moves(self, argv):
+        """ Parses command line arguments into a list of SingleMoveDescriptor objects. """
         current_arg = 0
         self.single_moves = []
         self.current_single_move = 0
@@ -73,76 +76,9 @@ class ScriptedMover(Node):
             self.single_moves.append(move)
         self.get_logger().info('Parsed {} moves:'.format(len(self.single_moves)))
         for move in self.single_moves:
-            move.print()    
-
-    # Pull the next single_move off the array and start it
-    def run_single_move(self):
-        single_move = self.single_moves[self.current_single_move]
-        self.current_single_move += 1   # prep for next move
-
-        if(single_move.move_type == 'stop'):
-            self.send_goal(self.stop_client, single_move.move_spec)
-            self.get_logger().info('sent stop goal')
-        elif(single_move.move_type == 'drive_straight_odom'):
-            self.send_goal(self.drive_straight_client, single_move.move_spec)
-            self.get_logger().info('sent drive_straight goal')
-        elif(single_move.move_type == 'drive_straight_map'):
-            self.send_goal(self.drive_straight_map_client, single_move.move_spec)
-            self.get_logger().info('sent drive_straight_map goal')
-        elif(single_move.move_type == 'rotate'):
-            self.send_goal(self.rotate_odom_client, single_move.move_spec)
-            self.get_logger().info('sent rotate goal')
-        elif(single_move.move_type == 'drive_waypoints'):
-                self.send_goal(self.drive_waypoints_client, single_move.move_spec)
-                self.get_logger().info('sent drive waypoints goal')
-        elif(single_move.move_type == 'seek2cone'):
-                self.send_goal(self.seek2cone_client, single_move.move_spec)
-                self.get_logger().info('sent seek2cone goal')
-        elif(single_move.move_type == 'seek2can'):
-                self.send_goal(self.seek2can_client, single_move.move_spec)
-                self.get_logger().info('sent seek2can goal')
-        else:
-            self.get_logger().fatal('ERROR: requested to run unsupported move {}'.format(single_move.move_type))
-            rclpy.shutdown()
-
-    def send_goal(self, client, move_spec):
-        goal_msg = Move.Goal()
-        goal_msg.move_spec = move_spec
-
-        client.wait_for_server()
-
-        self._send_goal_future = client.send_goal_async(
-            goal_msg, feedback_callback=self.feedback_cb)
-        self._send_goal_future.add_done_callback(self.goal_response_callback)
-
-        
-    def feedback_cb(self, feedback_msg):
-        feedback = feedback_msg.feedback
-        self.get_logger().info('{} {:0.2f}'.format(feedback.feedback_text, feedback.progress))
-
-
-    def goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().error('Goal rejected - Exiting')
-            rclpy.shutdown()
-            return
-
-        self.get_logger().info('Goal accepted')
-
-        self._get_result_future = goal_handle.get_result_async()
-        self._get_result_future.add_done_callback(self.get_result_callback)
-
-    def get_result_callback(self, future):
-        result = future.result().result
-        self.get_logger().info('Result: {0}'.format(result.move_results))
-        self.action_complete = True
-        if self.current_single_move == len(self.single_moves):
-            self.get_logger().info('Finished moves, exiting')
-            rclpy.shutdown()
-        else:
-            self.run_single_move()
-    
+            move.print()
+    # Removed run_single_move, send_goal, feedback_cb, goal_response_callback, get_result_callback
+    # The logic is now handled by SingleMoveClient and the main execution loop.
 
 def usage():
     print('Usage: scripted_mover.py [commands] - executes the series of move commands provided')
@@ -161,17 +97,47 @@ def main(args=None):
         usage()
 
     rclpy.init(args=args)
-
-    move_client = ScriptedMover()
-    move_client.parse_moves(sys.argv[1:])
-    move_client.run_single_move()
+    move_node = None
+    exit_code = 0
     try:
-        rclpy.spin(move_client)
+        move_node = ScriptedMover()
+        move_node.parse_moves(sys.argv[1:])
+
+        # Execute moves sequentially
+        for move in move_node.single_moves:
+            move_node.get_logger().info(f"--- Starting Move: {move.move_type} {move.move_spec} ---")
+            success = move_node.move_client.execute_move(move.move_type, move.move_spec)
+            if not success:
+                move_node.get_logger().error(f"Move {move.move_type} failed. Aborting sequence.")
+                exit_code = 1 # Indicate failure
+                break
+            else:
+                 move_node.get_logger().info(f"--- Completed Move: {move.move_type} ---")
+            # Optional: Add a small delay between moves if needed
+            # time.sleep(0.5)
+
+        if exit_code == 0:
+            move_node.get_logger().info("Successfully completed all moves.")
+        else:
+            move_node.get_logger().error("Move sequence aborted due to failure.")
+
     except KeyboardInterrupt:
-        print('KeyboardInterrupt - shutting down')
+        move_node.get_logger().info('KeyboardInterrupt, shutting down.')
+        exit_code = 1 # Indicate interruption
+    except Exception as e:
+        if move_node:
+            move_node.get_logger().fatal(f"An unexpected error occurred: {e}")
+        else:
+            print(f"An unexpected error occurred during initialization: {e}")
+        exit_code = 1 # Indicate error
+    finally:
+        # Cleanup
+        if move_node:
+            move_node.destroy_node()
+        rclpy.try_shutdown() # Use try_shutdown to avoid errors if already shut down
+
+    sys.exit(exit_code)
 
 
 if __name__ == '__main__':
     main()
-
-    
