@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-#!/usr/bin/env python
-
 import sys
 import time # Keep time if needed for delays between moves
 
