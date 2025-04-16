@@ -118,7 +118,7 @@ class SingleMoveClient():
             return
         if not goal_handle.accepted:
             self.logger.error('Goal rejected by server.')
-            self.last_status = GoalStatus.STATUS_REJECTED # Use standard status
+            self.last_status = GoalStatus.STATUS_ABORTED # Treat rejection as an abort
             self.action_complete_event.set() # Signal completion (failure)
             return
 
@@ -159,6 +159,5 @@ class SingleMoveClient():
             GoalStatus.STATUS_SUCCEEDED: 'SUCCEEDED',
             GoalStatus.STATUS_CANCELED: 'CANCELED',
             GoalStatus.STATUS_ABORTED: 'ABORTED',
-            GoalStatus.STATUS_REJECTED: 'REJECTED', # Added for completeness
         }
         return status_map.get(status, f'INVALID_STATUS_{status}')
