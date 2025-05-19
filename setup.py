@@ -7,7 +7,7 @@ package_name = 'scripted_bot_driver'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(exclude=['test']),
+    packages=find_packages(),  # Allow 'test' directory to be a package
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -35,6 +35,7 @@ setup(
             'scripted_mover = scripted_bot_driver.scripted_mover:main',
             'angle_hunter = scripted_bot_driver.AngleHunter:main',
             'anglr = scripted_bot_driver.anglr:main',
+            'single_move_client_test = test.single_move_client_test:main',
         ],
     },
 )
