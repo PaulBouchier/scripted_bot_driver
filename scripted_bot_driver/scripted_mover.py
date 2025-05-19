@@ -4,12 +4,11 @@ import sys
 import time # Keep time if needed for delays between moves
 
 import rclpy
-# from rclpy.action import ActionClient # No longer needed here
 from rclpy.node import Node
 
-from scripted_bot_interfaces.action import Move # Keep for SingleMoveDescriptor if it uses it, otherwise remove
-# Import the new client
+from scripted_bot_interfaces.action import Move
 from .single_move_client import SingleMoveClient
+
 
 class SingleMoveDescriptor():
     def __init__(self, move_type, move_spec):
@@ -17,7 +16,6 @@ class SingleMoveDescriptor():
         self.move_spec = move_spec
     def print(self):
         print(self.move_type, self.move_spec)
-
 
 class ScriptedMover(Node):
     """
@@ -47,7 +45,7 @@ class ScriptedMover(Node):
             elif argv[current_arg] == 'movm':
                 move_type = 'drive_straight_map'
             elif argv[current_arg] == 'roto':
-                move_type = 'rotate'
+                move_type = 'rotate_odom'
             elif argv[current_arg] == 'drive_waypoints':
                 move_type = 'drive_waypoints'
             elif argv[current_arg] == 'seek2cone':

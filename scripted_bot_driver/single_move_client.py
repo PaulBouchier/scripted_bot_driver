@@ -44,13 +44,6 @@ class SingleMoveClient():
         self._send_goal_future = None
         self._get_result_future = None
 
-    def _get_client(self, move_type):
-        """Gets the appropriate action client for the given move type."""
-        # Handle potential mismatch from original script ('rotate' vs 'rotate_odom')
-        if move_type == 'rotate':
-            move_type = 'rotate_odom'
-        return self.clients.get(move_type)
-
     def execute_move(self, move_type, move_spec):
         """
         Executes a single move and blocks until completion.
@@ -67,7 +60,8 @@ class SingleMoveClient():
         self.last_result = None
         self.last_status = GoalStatus.STATUS_UNKNOWN
 
-        client = self._get_client(move_type)
+        client = self.clients.get(move_type)
+
         if not client:
             self.logger.error(f"Unknown move type: {move_type}")
             return False
@@ -87,15 +81,18 @@ class SingleMoveClient():
         goal_msg = Move.Goal()
         goal_msg.move_spec = move_spec
 
-        self.logger.info(f"Sending goal for {move_type}...")
+        self.logger.info(f"Sending goal for {move_type} with move_spec: {move_spec}")
         self._send_goal_future = client.send_goal_async(
             goal_msg, feedback_callback=self._feedback_cb)
+        self.logger.info(f"Goal sent for {move_type} with move_spec: {move_spec}")
 
         # Attach the goal response callback
+        self.logger.info(f"adding goal response callback for {move_type}")
         self._send_goal_future.add_done_callback(self._goal_response_callback)
+        self.logger.info(f"Goal response callback added for {move_type}")
 
         # Wait for the action to complete (event set by callbacks)
-        # Spin in a loop to process callbacks until the event is set
+        self.logger.info(f"Spin in a loop to process callbacks until the event is set")
         while not self.action_complete_event.wait(timeout=0.1):
             # Need rclpy.spin_once to process callbacks
             rclpy.spin_once(self.node, timeout_sec=0.0) # Use minimal timeout for responsiveness
