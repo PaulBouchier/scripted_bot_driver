@@ -7,7 +7,7 @@ package_name = 'scripted_bot_driver'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(),  # Allow 'test' directory to be a package
+    packages=['scripted_bot_driver', 'test'],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
