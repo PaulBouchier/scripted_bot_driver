@@ -207,9 +207,8 @@ class RotateOdom(MoveParent):
         self.create_action_server('rotate_odom')
 
     def get_feedback(self):
-        text_feedback = 'Degrees remaining:' 
-        self.get_logger().debug(f'{repr(self.ah)}\nloop rate: {self.estimated_loop_rate:.2f} Hz')
         progress_feedback = degrees(self.angle_error)  # Set progress_feedback to angle_error
+        text_feedback = 'Degrees remaining: {progress_feedback:.2f} degrees'.format(progress_feedback=progress_feedback) 
         
         return text_feedback, progress_feedback
 

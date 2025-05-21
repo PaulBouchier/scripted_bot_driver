@@ -17,22 +17,24 @@ class SingleMoveClientTesterNode(Node):
     def run_tests(self):
         self.get_logger().info('Starting test sequence...')
         moves = [
-            ("rotate_odom", "roto 1.57"),
-            ("rotate_odom", "roto -1.57"),
-            ("drive_straight_odom", "movo 0.1"),
-            ("drive_straight_odom", "movo -0.1"),
-            ("rotate_odom", "roto 1.57")
+            ("rotate_odom", str(1.57)),
+            ("rotate_odom", str(-1.57)),
+            ("drive_straight_odom", str(0.1)),
+            ("drive_straight_odom", str(-0.1)),
+            ("rotate_odom", str(1.57))
         ]
 
         for i in range(10):
             self.get_logger().info(f"--- Iteration {i + 1}/10 ---")
             for move_type, move_command_str in moves:
-                self.get_logger().info(f"Executing move: type='{move_type}', command='{move_command_str}'")
+                move_spec = []
+                move_spec.append(move_command_str)
+                self.get_logger().info(f"Executing move: type='{move_type}', command='{move_spec}'")
                 try:
                     # Assuming execute_move is a blocking call or its success/failure
                     # does not need to be explicitly checked for this test script.
-                    self.single_move_client.execute_move(move_type, move_command_str)
-                    self.get_logger().info(f"Move completed: type='{move_type}', command='{move_command_str}'")
+                    self.single_move_client.execute_move(move_type, move_spec)
+                    self.get_logger().info(f"Move completed: type='{move_type}', command='{move_spec}'")
                 except Exception as e:
                     self.get_logger().error(f"Error executing move: {e}")
                     # Depending on desired behavior, might re-raise or continue

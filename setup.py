@@ -35,7 +35,7 @@ setup(
             'scripted_mover = scripted_bot_driver.scripted_mover:main',
             'angle_hunter = scripted_bot_driver.AngleHunter:main',
             'anglr = scripted_bot_driver.anglr:main',
-            'single_move_client_test = test.single_move_client_test:main',
+            'single_move_client_test = scripted_bot_driver.single_move_client_test:main',
         ],
     },
 )
