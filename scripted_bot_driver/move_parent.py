@@ -24,11 +24,11 @@ from rcl_interfaces.msg import ParameterDescriptor
 loop_rate = 10       # loop rate
 
 # default speed values, which are parameter defaults that can be overriden by parameter cmds
-speed_default = 0.35    # driving speed, fwd or back
-low_speed_default = 0.15
+speed_default = 0.20    # driving speed, fwd or back
+low_speed_default = 0.10
 vel_slew_rate_default = 0.5 / loop_rate  # m/s^2 per loop
-rot_speed_default = math.pi/10    # rotating speed, rad/s - 10 sec per revolution
-low_rot_speed_default = rot_speed_default/3
+rot_speed_default = math.pi/5     # rotating speed, rad/s - 10 sec per revolution
+low_rot_speed_default = rot_speed_default/2
 rot_slew_rate_default = (rot_speed_default * 3) / loop_rate  # rad/s^2 per loop - slew in 1/3 sec
 map_pose_topic_default = 'map'
 
