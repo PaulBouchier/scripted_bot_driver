@@ -14,15 +14,55 @@ class SingleMoveClient():
     This class encapsulates the logic for sending a goal to a specific move action server
     and waiting for its completion.
     """
-    def __init__(self, node: Node):
+    def __init__(self, node: Node, executor):
         """
         Initializes the SingleMoveClient.
 
         Args:
             node: The ROS 2 Node instance to use for creating action clients and logging.
+            executor: The executor to use for spinning and processing callbacks.
         """
         self.node = node
+        self.executor = executor
         self.logger = node.get_logger()
+
+        # Ensure the node is managed by the provided executor.
+        # This is crucial for the executor.spin_once() in execute_move to process this node's callbacks.
+        # We check first to avoid issues if the node is already added or if get_nodes() is sensitive.
+        is_node_in_executor = False
+        try:
+            if self.node in self.executor.get_nodes():
+                is_node_in_executor = True
+        except Exception as e:
+            self.logger.warning(f"Could not determine if node is in executor, will attempt to add: {e}")
+
+        if not is_node_in_executor:
+            try:
+                self.executor.add_node(self.node)
+                self.logger.info(
+                    f"Node '{self.node.get_name()}' (id: {id(self.node)}) was added to the provided executor (id: {id(self.executor)}) by SingleMoveClient."
+                )
+            except Exception as e:
+                self.logger.error(
+                    f"Failed to add node '{self.node.get_name()}' (id: {id(self.node)}) to executor (id: {id(self.executor)}) in SingleMoveClient: {e}. "
+                    "Callbacks may not work."
+                )
+        else:
+            self.logger.info(
+                f"Node '{self.node.get_name()}' (id: {id(self.node)}) is already managed by the provided executor (id: {id(self.executor)})."
+            )
+
+        # Log the state of the executor after __init__'s logic
+        try:
+            nodes_in_executor_after_init = self.executor.get_nodes()
+            node_names_in_executor_after_init = [n.get_name() for n in nodes_in_executor_after_init]
+            is_present_after_init = self.node in nodes_in_executor_after_init
+            self.logger.info(
+                f"INIT_POST_ADD: Executor (id: {id(self.executor)}) managed nodes: {node_names_in_executor_after_init}. "
+                f"Target node '{self.node.get_name()}' (id: {id(self.node)}) in list: {is_present_after_init}"
+            )
+        except Exception as e:
+            self.logger.error(f"INIT_POST_ADD: Error getting nodes from executor: {e}")
 
         # Action clients
         self.clients = {
@@ -56,6 +96,33 @@ class SingleMoveClient():
             True if the action succeeded, False otherwise.
         """
         self.logger.info(f"Executing move: {move_type} {move_spec}")
+
+        # Diagnostic check for node-executor association
+        self.logger.info(f"EXEC_MOVE_PRE_CHECK: Target node '{self.node.get_name()}' (id: {id(self.node)}), Executor (id: {id(self.executor)})")
+        try:
+            current_nodes_in_executor = self.executor.get_nodes()
+            current_node_names_in_executor = [n.get_name() for n in current_nodes_in_executor]
+            self.logger.info(
+                f"EXEC_MOVE_PRE_CHECK: Executor (id: {id(self.executor)}) currently manages nodes (names): {current_node_names_in_executor}"
+            )
+            # For detailed debugging, let's see the raw node objects and their IDs from the executor's list
+            # This can be verbose, so consider removing or commenting out if logs are too noisy.
+            # for i, exec_node in enumerate(current_nodes_in_executor):
+            #     self.logger.info(f"EXEC_MOVE_PRE_CHECK: Executor node {i}: name='{exec_node.get_name()}', id={id(exec_node)}")
+
+            is_present_in_exec_move = self.node in current_nodes_in_executor
+            if not is_present_in_exec_move:
+                self.logger.warning(
+                    f"Node '{self.node.get_name()}' (id: {id(self.node)}) is NOT IN the provided executor's (id: {id(self.executor)}) list of managed nodes. "
+                    "Callbacks for this node might not be processed by this executor instance."
+                )
+            else:
+                self.logger.info(
+                    f"Node '{self.node.get_name()}' (id: {id(self.node)}) IS IN the provided executor's (id: {id(self.executor)}) list of managed nodes."
+                )
+        except Exception as e:
+            self.logger.error(f"EXEC_MOVE_PRE_CHECK: Failed to check node-executor association: {e}")
+
         self.action_complete_event.clear()
         self.last_result = None
         self.last_status = GoalStatus.STATUS_UNKNOWN
@@ -90,8 +157,8 @@ class SingleMoveClient():
         # Wait for the action to complete (event set by callbacks)
         self.logger.info(f"Spin in a loop to process callbacks until the event is set")
         while not self.action_complete_event.wait(timeout=0.01):
-            # Need rclpy.spin_once to process callbacks
-            rclpy.spin_once(self.node, timeout_sec=0.1) # Use minimal timeout for responsiveness
+            # Need to spin the executor to process callbacks
+            self.executor.spin_once(timeout_sec=0.1) # Use minimal timeout for responsiveness
 
         self.logger.info(f"Move '{move_type}' finished with status: {self._status_to_string(self.last_status)}")
         return self.last_status == GoalStatus.STATUS_SUCCEEDED
