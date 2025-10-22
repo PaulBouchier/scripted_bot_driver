@@ -54,7 +54,7 @@ Drive to a list of waypoints.
 ```
 drive_waypoints <target_x> <target_y> [ more_targets ] 
 ```
-- *target_x* and *target_y* are in meters in the odom frame.
+- *target_x* and *target_y* are in meters in the map frame.
 
 ### stop
 ```
