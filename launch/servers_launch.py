@@ -39,18 +39,18 @@ def generate_launch_description():
             output='screen',
             emulate_tty=True
         ),
-        Node(
-            package='scripted_bot_driver',
-            executable='seek2cone',
-            name='seek2cone',
-            output='screen',
-            emulate_tty=True,
-            parameters= [{
-                    'speed_default_param':          0.15,
-                    'low_speed_default_param':      0.15,
-                    'rot_speed_default_param':      0.25,
-                    'back_and_aim_param':           False,
-                    'use_oakd_param':               False
-            }]
-        )
+        #Node(
+        #    package='scripted_bot_driver',
+        #    executable='seek2cone',
+        #    name='seek2cone',
+        #    output='screen',
+        #    emulate_tty=True,
+        #    parameters= [{
+        #            'speed_default_param':          0.15,
+        #            'low_speed_default_param':      0.15,
+        #            'rot_speed_default_param':      0.25,
+        #            'back_and_aim_param':           False,
+        #            'use_oakd_param':               False
+        #    }]
+        #)
     ])
