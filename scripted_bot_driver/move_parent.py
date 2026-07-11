@@ -30,7 +30,7 @@ vel_slew_rate_default = 0.5 / loop_rate  # m/s^2 per loop
 rot_speed_default = math.pi/5     # rotating speed, rad/s - 10 sec per revolution
 low_rot_speed_default = rot_speed_default/2
 rot_slew_rate_default = (rot_speed_default * 3) / loop_rate  # rad/s^2 per loop - slew in 1/3 sec
-map_pose_topic_default = 'map'
+map_pose_topic_default = 'map_pose'  # topic for pose in map frame
 
 class MoveParent(Node):
 
