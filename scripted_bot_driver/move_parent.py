@@ -168,11 +168,14 @@ class MoveParent(Node):
                                                 10, callback_group=map_cb_group)
 
         rate = self.create_rate(2)
-        while (rclpy.ok() and self.odom_msg_count == 0 and self.map_msg_count == 0):
+        while (rclpy.ok() and (self.odom_msg_count == 0 or self.map_msg_count == 0)):
             self.get_logger().info('goal_callback() waiting for odom & map (on {}) to start'.format(self.map_pose_topic))
             rate.sleep()
 
         self.destroy_rate(rate)
+
+        self.get_logger().info('odom & map started, odom count: {}, map count: {}'.format(
+            self.odom_msg_count, self.map_msg_count))
 
         return GoalResponse.ACCEPT
 
