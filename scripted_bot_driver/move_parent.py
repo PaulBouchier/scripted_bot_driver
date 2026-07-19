@@ -39,19 +39,19 @@ class MoveParent(Node):
         self.node_name = node_name
 
         # initialize parameters
-        self.declare_parameter('speed_default_param', speed_default,
+        self.declare_parameter('speed_default', speed_default,
                                ParameterDescriptor(description='Default linear full speed, m/s'))
-        self.declare_parameter('low_speed_default_param', low_speed_default,
+        self.declare_parameter('low_speed_default', low_speed_default,
                                ParameterDescriptor(description='Default linear low speed, m/s'))
-        self.declare_parameter('vel_slew_rate_default_param', vel_slew_rate_default,
+        self.declare_parameter('vel_slew_rate_default', vel_slew_rate_default,
                                ParameterDescriptor(description='Default linear slew rate, m/s^2 per tick'))
-        self.declare_parameter('rot_speed_default_param', rot_speed_default,
+        self.declare_parameter('rot_speed_default', rot_speed_default,
                                ParameterDescriptor(description='Default rotational full speed, rad/s'))
-        self.declare_parameter('low_rot_speed_default_param', low_rot_speed_default,
+        self.declare_parameter('low_rot_speed_default', low_rot_speed_default,
                                ParameterDescriptor(description='Default rotational low speed, rad/s'))
-        self.declare_parameter('rot_slew_rate_default_param', rot_slew_rate_default,
+        self.declare_parameter('rot_slew_rate_default', rot_slew_rate_default,
                                ParameterDescriptor(description='Default rotational slew rate, rad/s^2 per tick'))
-        self.declare_parameter('map_pose_topic_param', map_pose_topic_default,
+        self.declare_parameter('map_pose_topic', map_pose_topic_default,
                                ParameterDescriptor(description='Topic for pose in map frame'))
 
         # set the default values
@@ -80,20 +80,20 @@ class MoveParent(Node):
 
     def set_defaults(self):
         # linear speed parameters
-        self.speed = self.get_parameter('speed_default_param').get_parameter_value().double_value
+        self.speed = self.get_parameter('speed_default').get_parameter_value().double_value
         self.full_speed = self.speed
-        self.low_speed = self.get_parameter('low_speed_default_param').get_parameter_value().double_value
-        self.vel_slew_rate = self.get_parameter('vel_slew_rate_default_param').get_parameter_value().double_value
+        self.low_speed = self.get_parameter('low_speed_default').get_parameter_value().double_value
+        self.vel_slew_rate = self.get_parameter('vel_slew_rate_default').get_parameter_value().double_value
         # self.get_logger().info('Linear speed parameter: {:0.2f} m/s'.format(self.speed))
 
         # rotational speed parameters
-        self.rot_speed = self.get_parameter('rot_speed_default_param').get_parameter_value().double_value
+        self.rot_speed = self.get_parameter('rot_speed_default').get_parameter_value().double_value
         self.full_rot_speed = self.rot_speed
-        self.low_rot_speed = self.get_parameter('low_rot_speed_default_param').get_parameter_value().double_value
-        self.rot_slew_rate = self.get_parameter('rot_slew_rate_default_param').get_parameter_value().double_value
+        self.low_rot_speed = self.get_parameter('low_rot_speed_default').get_parameter_value().double_value
+        self.rot_slew_rate = self.get_parameter('rot_slew_rate_default').get_parameter_value().double_value
 
         # map pose topic
-        self.map_pose_topic = self.get_parameter('map_pose_topic_param').get_parameter_value().string_value
+        self.map_pose_topic = self.get_parameter('map_pose_topic').get_parameter_value().string_value
         self.get_logger().info('map_pose_topic: {}'.format(self.map_pose_topic))
 
     def send_move_cmd(self, linear, angular):

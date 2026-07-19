@@ -31,6 +31,7 @@ class DriveWaypoints(MoveParent):
                                ParameterDescriptor(description='distance within which we consider goal achieved'))
         self.err_circle = self.get_parameter('err_circle_param').value
         self.get_logger().info('DriveWaypoints err_circle: {}'.format(self.err_circle))
+        self.get_logger().info('speed_default: {}, rot_speed_default: {}'.format(self.speed, self.rot_speed))
         self.debug_msg = WaypointsDebug()
         self.debug_pub = self.create_publisher(WaypointsDebug, 'waypoints_debug', 10)
 
